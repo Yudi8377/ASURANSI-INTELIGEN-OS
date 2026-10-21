@@ -1,0 +1,20 @@
+{
+  "name": "asuransi-inteligen-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "dev": "node --watch src/index.mjs"
+  },
+  "dependencies": {
+    "@fastify/cors": "latest",
+    "@fastify/helmet": "latest",
+    "@fastify/jwt": "latest",
+    "@fastify/rate-limit": "latest",
+    "argon2": "latest",
+    "dotenv": "latest",
+    "fastify": "latest",
+    "pg": "latest",
+    "zod": "latest"
+  }
+}
