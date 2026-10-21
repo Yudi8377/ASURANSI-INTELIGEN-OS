@@ -14,3 +14,5 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run build
+      - run: node --check server/src/index.mjs
+      - run: npm install --prefix server
