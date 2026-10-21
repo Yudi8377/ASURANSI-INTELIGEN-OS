@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "policy": "Import official texts or appropriately licensed materials only. Store retrieval timestamp, version, effective dates, SHA-256, and reviewer. Unverified sources must not be treated as legal authority.",
+  "sources": [
+    {
+      "key": "id-law-perasuransian-40-2014",
+      "title": "UU No. 40 Tahun 2014 tentang Perasuransian",
+      "publisher": "JDIH OJK / JDIH Pemerintah",
+      "url": "https://peraturan.bpk.go.id/",
+      "jurisdiction": "ID",
+      "type": "law",
+      "status": "needs_official_document_import"
+    },
+    {
+      "key": "id-law-p2sk-4-2023",
+      "title": "UU No. 4 Tahun 2023 tentang Pengembangan dan Penguatan Sektor Keuangan",
+      "publisher": "JDIH Pemerintah",
+      "url": "https://peraturan.go.id/",
+      "jurisdiction": "ID",
+      "type": "law",
+      "status": "needs_official_document_import"
+    },
+    {
+      "key": "id-law-pdp-27-2022",
+      "title": "UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi",
+      "publisher": "JDIH Pemerintah",
+      "url": "https://peraturan.bpk.go.id/",
+      "jurisdiction": "ID",
+      "type": "law",
+      "status": "needs_official_document_import"
+    },
+    {
+      "key": "id-ojk-insurance",
+      "title": "Peraturan OJK terkait perasuransian dan perlindungan konsumen",
+      "publisher": "Otoritas Jasa Keuangan",
+      "url": "https://www.ojk.go.id/",
+      "jurisdiction": "ID",
+      "type": "regulation",
+      "status": "needs_scope_and_version_review"
+    },
+    {
+      "key": "intl-iais-icps",
+      "title": "IAIS Insurance Core Principles",
+      "publisher": "International Association of Insurance Supervisors",
+      "url": "https://www.iais.org/",
+      "jurisdiction": "International",
+      "type": "supervisory_standard",
+      "status": "needs_license_and_version_review"
+    },
+    {
+      "key": "intl-iso-27001",
+      "title": "ISO/IEC 27001 information security management",
+      "publisher": "ISO",
+      "url": "https://www.iso.org/",
+      "jurisdiction": "International",
+      "type": "standard",
+      "status": "reference_only_license_review_required"
+    },
+    {
+      "key": "intl-iso-42001",
+      "title": "ISO/IEC 42001 AI management system",
+      "publisher": "ISO",
+      "url": "https://www.iso.org/",
+      "jurisdiction": "International",
+      "type": "standard",
+      "status": "reference_only_license_review_required"
+    },
+    {
+      "key": "intl-iso-31000",
+      "title": "ISO 31000 risk management guidelines",
+      "publisher": "ISO",
+      "url": "https://www.iso.org/",
+      "jurisdiction": "International",
+      "type": "standard",
+      "status": "reference_only_license_review_required"
+    }
+  ]
+}
