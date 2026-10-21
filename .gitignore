@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+local.properties
+.gradle/
+build/
+.DS_Store
+coverage/
