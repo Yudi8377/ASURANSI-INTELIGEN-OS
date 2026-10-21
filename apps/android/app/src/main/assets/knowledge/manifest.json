@@ -1,0 +1,16 @@
+{
+  "pack_id": "asuransi-inteligen-os-legal-id",
+  "version": "0.1.0-bootstrap",
+  "jurisdiction": "ID",
+  "language": "id",
+  "generated_at": "2026-10-21",
+  "status": "bootstrap-summary-not-verified-legal-corpus",
+  "files": [
+    {
+      "path": "indeks-hukum-asuransi-id.md",
+      "sha256_required": true,
+      "verified": false
+    }
+  ],
+  "warning": "Metadata and summary only. Not full statutory text; not suitable for final legal decisions. Requires official source import and legal review."
+}
