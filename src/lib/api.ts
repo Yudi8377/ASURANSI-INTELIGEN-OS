@@ -1,0 +1,26 @@
+export type ApiClient = { id: string; client_code: string; client_type: 'individual'|'company'; full_name: string; email: string|null; phone: string|null; status: string; consent_status: string; created_at: string; updated_at: string };
+const base = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+let token: string | null = null;
+let expiresAt = 0;
+export function clearSession() { token = null; expiresAt = 0; }
+async function call<T>(path: string, init: RequestInit = {}, auth = true): Promise<T> {
+  const headers = new Headers(init.headers); headers.set('Accept','application/json');
+  if (init.body) headers.set('Content-Type','application/json');
+  if (auth) { if (!token || Date.now() >= expiresAt) { clearSession(); throw new Error('Sesi berakhir. Silakan masuk kembali.'); } headers.set('Authorization', 'Bearer '+token); }
+  const response = await fetch(base+path,{...init,headers,credentials:'omit'});
+  if (response.status === 401) clearSession();
+  if (!response.ok) { const body = await response.json().catch(()=>({})) as {message?:string}; throw new Error(body.message || 'Permintaan gagal ('+response.status+').'); }
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+export async function login(email:string,password:string) {
+  const result = await call<{accessToken:string;expiresIn:number;user:{id:string;email:string;fullName:string;tenantId:string;permissions:string[]}}>('/v1/auth/login',{method:'POST',body:JSON.stringify({email,password})},false);
+  token=result.accessToken; expiresAt=Date.now()+Math.max(0,result.expiresIn-15)*1000; return result;
+}
+export function getClients(search='') {
+  const q = new URLSearchParams(); if(search.trim()) q.set('search',search.trim());
+  return call<{data:ApiClient[];limit:number;offset:number}>('/v1/clients'+(q.size?'?'+q:''));
+}
+export function createClient(input:Record<string,unknown>) { return call<{data:ApiClient}>('/v1/clients',{method:'POST',body:JSON.stringify(input)}); }
+export function updateClient(id:string,input:Record<string,unknown>) { return call<{data:ApiClient}>('/v1/clients/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(input)}); }
+export function deleteClient(id:string) { return call<void>('/v1/clients/'+encodeURIComponent(id),{method:'DELETE'}); }
