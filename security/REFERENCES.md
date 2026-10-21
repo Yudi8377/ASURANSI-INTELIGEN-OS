@@ -3,10 +3,10 @@
 Korpus ini dibangun secara bertahap; tidak realistis atau legal untuk mengklaim seluruh isi internet telah diunduh dan ditanamkan. Setiap dokumen harus punya asal, versi, tanggal akses, hash, lisensi, tanggal berlaku, dan status review. Konten dari penyerang digunakan untuk memahami TTP dan mitigasi, bukan untuk menjalankan serangan terhadap pihak lain.
 
 ## Referensi keamanan utama
-- OWASP Application Security Verification Standard (ASVS): https://asvs.owasp.org/ — persyaratan verifikasi aplikasi web; stable release yang dirujuk pada saat pencatatan adalah ASVS 5.0.0. citeturn533478search6
-- OWASP API Security Top 10 2023: https://api-security.owasp.org/editions/2023/en/0x11-t10/ — termasuk broken object-level authorization, broken authentication, SSRF, dan konfigurasi keamanan. citeturn533478search2
-- MITRE ATT&CK: https://attack.mitre.org/ — basis pengetahuan perilaku adversary berdasarkan observasi dunia nyata, untuk memetakan deteksi dan mitigasi. citeturn533478search0
-- NIST Cybersecurity Framework 2.0: https://www.nist.gov/cyberframework — tata kelola dan pengelolaan risiko keamanan siber. citeturn533478search16
+- OWASP Application Security Verification Standard (ASVS): https://asvs.owasp.org/ — persyaratan verifikasi aplikasi web; stable release yang dirujuk pada saat pencatatan adalah ASVS 5.0.0.
+- OWASP API Security Top 10 2023: https://api-security.owasp.org/editions/2023/en/0x11-t10/ — termasuk broken object-level authorization, broken authentication, SSRF, dan konfigurasi keamanan.
+- MITRE ATT&CK: https://attack.mitre.org/ — basis pengetahuan perilaku adversary berdasarkan observasi dunia nyata, untuk memetakan deteksi dan mitigasi.
+- NIST Cybersecurity Framework 2.0: https://www.nist.gov/cyberframework — tata kelola dan pengelolaan risiko keamanan siber.
 - OWASP MASVS: https://mas.owasp.org/MASVS/ — perlu dipetakan untuk aplikasi Android sebelum rilis.
 - NIST Secure Software Development Framework (SSDF): https://csrc.nist.gov/Projects/ssdf — perlu dimasukkan ke pipeline pengembangan.
 
