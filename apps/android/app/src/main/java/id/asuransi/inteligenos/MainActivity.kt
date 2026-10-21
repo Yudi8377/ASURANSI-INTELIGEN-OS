@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +38,8 @@ private fun InsuranceApp() {
     var prompt by remember { mutableStateOf("") }
     var reply by remember { mutableStateOf("Saya AI Companion dalam mode awal. Mesin AI lokal dan paket regulasi terverifikasi belum dipasang. Jangan masukkan data nasabah rahasia ke prototipe ini.") }
     val nav = listOf("Ikhtisar", "CRM & Nasabah", "Polis", "Klaim", "Accounting", "HRD & Payroll", "Basis Pengetahuan", "AI Companion", "Keamanan")
+    val context = LocalContext.current
+    val localLegalIndex = remember { context.assets.open("knowledge/indeks-hukum-asuransi-id.md").bufferedReader().use { it.readText() } }
     Scaffold(
         topBar = {
             TopAppBarCompat(title = "ASURANSI INTELIGEN OS", subtitle = "Klien Android · Fondasi offline-first",
@@ -64,6 +67,14 @@ private fun InsuranceApp() {
                     item { MetricCard("Polis dan klaim", "Workspace terintegrasi", "Navigasi modul tersedia; data operasional belum disinkronkan.") }
                     item { MetricCard("Keamanan", "Akses dibatasi", "API produksi, autentikasi, dan izin server wajib dikonfigurasi sebelum penggunaan nyata.") }
                     item { MetricCard("AI Companion", "Bantuan terkontrol", "AI harus menunjukkan sumber, tanggal berlaku, dan eskalasi ke manusia.") }
+                } else if (selected == "Basis Pengetahuan") {
+                    item {
+                        Text("Paket pengetahuan lokal", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Navy)
+                        Text("Versi bootstrap 0.1.0 · Ringkasan awal, belum menjadi korpus hukum terverifikasi.", fontSize = 12.sp, color = Color(0xFF9B6A22), modifier = Modifier.padding(vertical = 8.dp))
+                        Surface(color = Color.White, shape = RoundedCornerShape(10.dp), shadowElevation = 1.dp) {
+                            Text(localLegalIndex.take(7000), modifier = Modifier.padding(14.dp), fontSize = 11.sp, color = Color(0xFF40566D), lineHeight = 17.sp)
+                        }
+                    }
                 } else if (selected == "AI Companion" || assistantOpen) {
                     item {
                         Text("AI Companion", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Navy)
