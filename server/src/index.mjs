@@ -7,6 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import argon2 from 'argon2';
 import pg from 'pg';
 import { z } from 'zod';
+import { registerOperations } from './operations.mjs';
 
 const { Pool } = pg;
 const required = ['DATABASE_URL','AUTH_ACCESS_TOKEN_SECRET'];
@@ -78,6 +79,7 @@ app.delete('/api/v1/clients/:id',{preHandler:[auth,permit('clients:delete')]},as
  const id=z.string().uuid().safeParse(request.params.id);if(!id.success)return reply.code(400).send({error:'INVALID_ID'});
  const client=await pool.connect();try{await client.query('BEGIN');const r=await client.query('UPDATE asuransi.clients SET deleted_at=now(),updated_at=now() WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id',[request.user.tenantId,id.data]);if(!r.rowCount){await client.query('ROLLBACK');return reply.code(404).send({error:'NOT_FOUND'})}await audit(client,request,{tenantId:request.user.tenantId,userId:request.user.userId},'client.soft_delete','client',id.data);await client.query('COMMIT');return reply.code(204).send()}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
 });
+await registerOperations(app, { pool, auth, permit });
 app.setNotFoundHandler((request,reply)=>reply.code(404).send({error:'NOT_FOUND',requestId:request.id}));
 const port=Number(process.env.API_PORT||8080);
 await app.listen({port,host:process.env.API_HOST||'0.0.0.0'});
