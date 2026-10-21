@@ -1,0 +1,270 @@
+{
+  "version": 1,
+  "status": "scenario-templates-not-production-models",
+  "description": "Seed templates for decision-support simulations. Numerical outputs require validated data and deterministic calculators; templates do not generate predictions by themselves.",
+  "scenarios": [
+    {
+      "id": "underwriting-baseline",
+      "domain": "underwriting",
+      "name": "Baseline underwriting review",
+      "purpose": "Compare the proposal with the approved risk appetite and coverage requirements.",
+      "variants": [
+        "baseline",
+        "accept_with_terms",
+        "refer_for_review",
+        "decline_draft"
+      ],
+      "required_inputs": [
+        "product_id",
+        "coverage_period",
+        "exposure_units",
+        "sum_insured",
+        "risk_factors",
+        "policy_wording_version",
+        "underwriting_guideline_version"
+      ],
+      "metrics": [
+        "expected_loss_range_if_model_validated",
+        "coverage_fit",
+        "missing_evidence_count",
+        "accumulation_contribution",
+        "referral_flags"
+      ],
+      "human_gate": "authorized_underwriter"
+    },
+    {
+      "id": "premium-sensitivity",
+      "domain": "pricing",
+      "name": "Premium adequacy sensitivity",
+      "purpose": "Show how technical premium indication changes with frequency, severity, trend, expense, reinsurance and risk-margin assumptions.",
+      "variants": [
+        "baseline",
+        "frequency_plus",
+        "severity_plus",
+        "inflation_stress",
+        "reinsurance_cost_stress",
+        "combined_adverse"
+      ],
+      "required_inputs": [
+        "product_id",
+        "exposure_period",
+        "earned_exposure",
+        "claim_frequency_model_version",
+        "severity_model_version",
+        "trend_assumption",
+        "expense_basis",
+        "reinsurance_basis",
+        "risk_margin_basis"
+      ],
+      "metrics": [
+        "pure_premium_range",
+        "technical_premium_range",
+        "expected_loss_ratio_range",
+        "sensitivity_by_driver",
+        "data_credibility"
+      ],
+      "human_gate": "actuarial_or_pricing_owner"
+    },
+    {
+      "id": "claim-coverage-and-reserve",
+      "domain": "claims",
+      "name": "Claim coverage and reserve scenarios",
+      "purpose": "Organize coverage evidence and compare reserve/cash-flow cases without deciding the claim automatically.",
+      "variants": [
+        "low_case",
+        "base_case",
+        "high_case",
+        "additional_evidence_case",
+        "recovery_case"
+      ],
+      "required_inputs": [
+        "policy_id",
+        "loss_date",
+        "notice_date",
+        "reported_peril",
+        "policy_wording_version",
+        "evidence_inventory",
+        "deductible",
+        "coverage_limit",
+        "paid_amount",
+        "current_reserve"
+      ],
+      "metrics": [
+        "coverage_clause_matches",
+        "evidence_gaps",
+        "gross_reserve_range",
+        "net_reserve_range_if_recovery_supported",
+        "cash_flow_timing_range"
+      ],
+      "human_gate": "authorized_claims_officer"
+    },
+    {
+      "id": "claim-anomaly-triage",
+      "domain": "claims",
+      "name": "Claims anomaly triage",
+      "purpose": "Prioritize review of unusual patterns while distinguishing anomaly from evidence of wrongdoing.",
+      "variants": [
+        "normal_comparison_cohort",
+        "anomaly_signal_review",
+        "false_positive_cost_stress"
+      ],
+      "required_inputs": [
+        "claim_features_approved",
+        "comparison_cohort_definition",
+        "data_window",
+        "feature_version",
+        "investigation_outcome_status"
+      ],
+      "metrics": [
+        "anomaly_signals",
+        "explanation_by_feature",
+        "false_positive_risk",
+        "data_quality_warnings"
+      ],
+      "human_gate": "authorized_investigator"
+    },
+    {
+      "id": "portfolio-catastrophe-stress",
+      "domain": "portfolio",
+      "name": "Portfolio accumulation and catastrophe stress",
+      "purpose": "Estimate portfolio sensitivity to correlated losses only when exposure and hazard inputs are sufficiently credible.",
+      "variants": [
+        "baseline",
+        "regional_event",
+        "severity_inflation",
+        "correlated_event",
+        "reinsurance_exhaustion"
+      ],
+      "required_inputs": [
+        "portfolio_snapshot_date",
+        "geographic_exposure",
+        "sum_insured",
+        "coverage_terms",
+        "hazard_dataset_version",
+        "reinsurance_terms_version"
+      ],
+      "metrics": [
+        "gross_loss_range_if_model_validated",
+        "net_loss_range_if_treaty_model_validated",
+        "concentration_by_region",
+        "limit_utilization",
+        "data_coverage"
+      ],
+      "human_gate": "chief_risk_or_portfolio_owner"
+    },
+    {
+      "id": "renewal-retention",
+      "domain": "portfolio",
+      "name": "Renewal and retention trade-off",
+      "purpose": "Compare premium adequacy, retention, customer outcomes and adverse-selection risks under approved assumptions.",
+      "variants": [
+        "baseline",
+        "price_increase",
+        "price_hold",
+        "service_improvement",
+        "adverse_selection"
+      ],
+      "required_inputs": [
+        "renewal_cohort",
+        "earned_premium",
+        "claims_experience_window",
+        "expense_basis",
+        "approved_elasticity_assumption",
+        "customer_outcome_metrics"
+      ],
+      "metrics": [
+        "retention_range",
+        "premium_change",
+        "loss_ratio_range",
+        "customer_impact",
+        "uncertainty_and_sample_size"
+      ],
+      "human_gate": "authorized_product_or_pricing_owner"
+    },
+    {
+      "id": "regulatory-change-impact",
+      "domain": "compliance",
+      "name": "Regulatory or wording change impact",
+      "purpose": "Trace a verified change in law, regulation or policy wording to affected products, workflows and controls.",
+      "variants": [
+        "current_rule_baseline",
+        "effective_date_transition",
+        "control_gap_case"
+      ],
+      "required_inputs": [
+        "verified_source_id",
+        "instrument_version",
+        "publication_date",
+        "effective_date",
+        "affected_product_ids",
+        "control_inventory"
+      ],
+      "metrics": [
+        "affected_products",
+        "affected_workflows",
+        "control_gaps",
+        "implementation_tasks",
+        "source_verification_status"
+      ],
+      "human_gate": "legal_compliance_owner"
+    },
+    {
+      "id": "liquidity-and-reinsurance-stress",
+      "domain": "finance",
+      "name": "Claims liquidity and reinsurance stress",
+      "purpose": "Explore payment timing, recoveries and liquidity under adverse claim and counterparty scenarios.",
+      "variants": [
+        "baseline",
+        "claims_surge",
+        "recovery_delay",
+        "counterparty_stress",
+        "combined_stress"
+      ],
+      "required_inputs": [
+        "cash_flow_baseline",
+        "claims_payment_schedule",
+        "reinsurance_recovery_terms",
+        "counterparty_exposure",
+        "investment_liquidity_assumptions"
+      ],
+      "metrics": [
+        "cash_need_range",
+        "timing_gap",
+        "recovery_sensitivity",
+        "assumption_coverage"
+      ],
+      "human_gate": "authorized_finance_and_risk_owner"
+    }
+  ],
+  "commonOutputSchema": [
+    "scenario_id",
+    "run_id",
+    "decision_question",
+    "decision_owner",
+    "created_at",
+    "horizon",
+    "tenant_scope",
+    "input_snapshot_version",
+    "assumptions",
+    "excluded_factors",
+    "baseline_metrics",
+    "scenario_metrics",
+    "uncertainty",
+    "sensitivity_drivers",
+    "evidence_citations",
+    "data_quality_warnings",
+    "privacy_and_fairness_checks",
+    "model_versions",
+    "knowledge_pack_version",
+    "human_review_required",
+    "approval_status",
+    "audit_reference"
+  ],
+  "rules": [
+    "Do not output numeric forecasts unless required inputs pass validation and a versioned calculator/model exists.",
+    "Label scenario outcomes as conditional estimates, not guarantees.",
+    "If critical inputs are absent, return blocked/insufficient_data rather than inventing values.",
+    "Never use protected or sensitive personal attributes as a proxy for risk without a documented lawful basis, validated necessity and fairness review.",
+    "Human approval is mandatory for binding insurance decisions and financial actions."
+  ]
+}
