@@ -1,6 +1,7 @@
 package id.asuransi.inteligenos
 
 import android.os.Bundle
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -80,7 +81,7 @@ private fun InsuranceApp() {
                         Text("AI Companion", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Navy)
                         Text(reply, modifier = Modifier.padding(vertical = 10.dp), fontSize = 13.sp, color = Color(0xFF40566D))
                         OutlinedTextField(value = prompt, onValueChange = { prompt = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Tulis tugas") })
-                        Button(onClick = { if (prompt.isNotBlank()) { reply = "Permintaan diterima: “$prompt”. Ini masih prototipe UI; belum ada inferensi model AI atau pencarian regulasi aktif."; prompt = "" } }, modifier = Modifier.padding(top = 8.dp)) { Text("Kirim") }
+                        Button(onClick = { if (prompt.isNotBlank()) { reply = findLocalKnowledge(context, prompt); prompt = "" } }, modifier = Modifier.padding(top = 8.dp)) { Text("Kirim") }
                     }
                 } else {
                     item { MetricCard(selected, "Modul disiapkan", "Form CRUD, validasi, audit, dan koneksi API akan diaktifkan setelah layanan server terkonfigurasi.") }
@@ -151,4 +152,19 @@ private fun MetricCard(title: String, value: String, description: String) {
             Text(description, fontSize = 12.sp, color = Color(0xFF70859A), lineHeight = 18.sp)
         }
     }
+}
+
+private fun findLocalKnowledge(context: Context, query: String): String {
+    val text = context.assets.open("knowledge/indeks-hukum-asuransi-id.md").bufferedReader().use { it.readText() }
+    val terms = query.lowercase().split(Regex("[^a-z0-9]+")).filter { it.length >= 4 }.distinct()
+    if (terms.isEmpty()) return "Masukkan pertanyaan yang lebih spesifik. Paket lokal hanya berisi indeks hukum awal dan belum menjadi korpus lengkap."
+    val matches = text.split(Regex("\\n\\s*\\n"))
+        .map { block -> block to terms.count { block.lowercase().contains(it) } }
+        .filter { it.second > 0 }
+        .sortedByDescending { it.second }
+        .take(3)
+    if (matches.isEmpty()) return "Tidak ditemukan kecocokan pada indeks lokal. Paket ini belum memuat teks hukum lengkap. Saat online, lakukan pencarian sumber resmi dan review sebelum digunakan."
+    return "Hasil pencarian lokal (keyword retrieval; bukan jawaban AI generatif):\\n\\n" +
+        matches.joinToString("\\n\\n---\\n\\n") { it.first.take(900) } +
+        "\\n\\nCatatan: ini ringkasan bootstrap, belum korpus hukum terverifikasi. Periksa naskah resmi dan tanggal berlakunya."
 }
