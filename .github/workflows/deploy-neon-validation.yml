@@ -82,30 +82,34 @@ jobs:
               "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG")"
             state="$(printf '%s' "$response" | jq -r '.. | objects | .status? // empty' | tail -n 1)"
             url="$(printf '%s' "$response" | jq -r '.. | objects | .invocation_url? // empty' | head -n 1)"
-            echo "Deployment status check $attempt: ${state:-pending}"
+            echo "Function deployment status check $attempt: ${state:-pending}"
             if [ "$state" = "failed" ]; then
               echo "::error::Neon reports a failed function deployment."
               printf '%s' "$response" | jq 'del(.. | .environment? // empty)'
               exit 1
             fi
             if [ "$state" = "completed" ] && [ -n "$url" ]; then
-              # invocation_url normally ends with /. Remove it before appending the API path.
+              # Neon may report deployment completion before the new code is visible
+              # at the invocation URL. Retry the strict health assertion during rollout.
               health_url="${url%/}/api/health"
-              echo "Checking validation health endpoint: $health_url"
+              echo "Waiting for the deployed version to pass health + database verification."
               health_file="$(mktemp)"
-              health_status="$(curl --silent --show-error --output "$health_file" --write-out '%{http_code}' --retry 3 --retry-delay 2 "$health_url")"
-              if [ "$health_status" -lt 200 ] || [ "$health_status" -ge 300 ]; then
-                echo "::error::Validation health endpoint returned HTTP $health_status"
-                cat "$health_file"
-                exit 1
-              fi
-              health="$(cat "$health_file")"
-              printf '%s' "$health" | jq .
-              printf '%s' "$health" | jq -e '.service == "asuransi-inteligen-api" and .database == "connected" and .status == "ok"' >/dev/null
-              echo "Validation function health + database connectivity check passed."
-              exit 0
+              for health_attempt in $(seq 1 24); do
+                health_status="$(curl --silent --show-error --output "$health_file" --write-out '%{http_code}' "$health_url" || true)"
+                if [ "$health_status" = "200" ] && jq -e '.service == "asuransi-inteligen-api" and .database == "connected" and .status == "ok"' "$health_file" >/dev/null 2>&1; then
+                  echo "Validation health endpoint returned HTTP 200:"
+                  jq . "$health_file"
+                  echo "Validation function health + database connectivity check passed."
+                  exit 0
+                fi
+                echo "Health propagation check $health_attempt: HTTP ${health_status:-unknown}; waiting for expected response."
+                if [ "$health_attempt" -lt 24 ]; then sleep 10; fi
+              done
+              echo "::error::Validation health endpoint did not return HTTP 200 with status=ok and database=connected after waiting for rollout."
+              cat "$health_file"
+              exit 1
             fi
             sleep 15
           done
-          echo "::error::Timed out waiting for Neon deployment completion; inspect Neon function deployment logs."
+          echo "::error::Timed out waiting for Neon function deployment completion; inspect Neon function deployment logs."
           exit 1
