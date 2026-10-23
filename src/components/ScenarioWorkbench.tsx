@@ -4,7 +4,7 @@ import { createScenario, getScenarios, runScenario, type ScenarioDraft, type Sce
 
 const types: {value:ScenarioType;label:string;required:string[]}[] = [
  {value:'underwriting',label:'Penerimaan / underwriting',required:['productId','coveragePeriod','exposureUnits','sumInsured','policyWordingVersion']},
- {value:'pricing',label:'Premi dan kecukupan harga',required:['productId','exposurePeriod','earnedExposure','frequencyModelVersion','severityModelVersion','expenseBasis']},
+ {value:'pricing',label:'Premi dan kecukupan harga',required:['productId','exposurePeriod','earnedExposure','exposureUnits','expectedFrequency','averageClaimSeverity','trendRate','expensePerExposure','reinsuranceCostPerExposure','riskMarginRate','frequencyModelVersion','severityModelVersion','expenseBasis']},
  {value:'claims',label:'Penilaian klaim dan cadangan',required:['policyId','lossDate','reportedPeril','policyWordingVersion','evidenceInventory','deductible','coverageLimit']},
  {value:'fraud_triage',label:'Anomali klaim (triase)',required:['approvedFeatures','comparisonCohort','dataWindow','featureVersion']},
  {value:'portfolio_stress',label:'Stres portofolio / bencana',required:['portfolioSnapshotDate','geographicExposure','sumInsured','hazardDatasetVersion','reinsuranceTermsVersion']},
