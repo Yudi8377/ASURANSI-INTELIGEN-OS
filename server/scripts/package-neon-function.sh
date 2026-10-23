@@ -15,19 +15,17 @@ docker run --rm --platform linux/arm64 \
   -v "$PWD:/workspace" -w /workspace node:24-bookworm bash -lc '
     set -euo pipefail
     npm install --prefix server --omit=dev --no-audit --no-fund
+    # Prune while still inside the container: npm creates root-owned files
+    # on the mounted workspace, which cannot reliably be removed by the runner.
+    find server/node_modules -type d \\( \
+      -name test -o -name tests -o -name __tests__ -o -name examples -o \
+      -name docs -o -name coverage \\) -prune -exec rm -rf {} +
+    find server/node_modules -type f \\( -name '*.map' -o -name '*.md' -o -name '*.markdown' \\) -delete
     node server/scripts/neon-package-smoke.mjs
   '
 
-# Neon builds a SquashFS image from the uploaded archive and can reject a
-# package with too many filesystem entries even when its byte size is small.
-# Keep runtime files but discard package documentation, test fixtures, and
-# source maps that are not needed to execute the API.
-find server/node_modules -type d \( \
-  -name test -o -name tests -o -name __tests__ -o -name examples -o \
-  -name docs -o -name coverage \
-\) -prune -exec rm -rf {} +
-find server/node_modules -type f \( -name '*.map' -o -name '*.md' -o -name '*.markdown' \) -delete
-
+# Non-runtime files are pruned inside the container above to avoid
+# permission errors on root-owned files in the mounted workspace.
 cp -R server/src build/neon-function/server/src
 cp -R server/node_modules build/neon-function/server/node_modules
 cp server/package.json build/neon-function/server/package.json
