@@ -16,6 +16,19 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Validate Neon Functions deployment policy
+        env:
+          AUTH_ACCESS_TOKEN_SECRET: ci-only-placeholder-secret-not-for-deployment
+          APP_ORIGIN: https://example.invalid
+        run: |
+          node --experimental-strip-types --input-type=module -e "
+            import assert from 'node:assert/strict';
+            const { default: config } = await import('./neon.ts');
+            assert.ok(config.functions?.asuransiapi, 'asuransiapi function must be declared');
+            assert.equal(config.functions.asuransiapi.source, 'server/src/neon-function.mjs');
+            assert.ok(config.functions.asuransiapi.externalPackages?.includes('argon2'), 'argon2 must remain external for native packaging');
+            assert.equal(typeof config.branch, 'function', 'per-branch runtime policy must be configured');
+          "
       - run: npm run build
       - run: node --check server/src/index.mjs
       - run: node --check server/src/neon-function.mjs
