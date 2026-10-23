@@ -9,7 +9,7 @@ test('underwriting scenario blocks quantitative analysis when required evidence 
   assert.equal(result.readyForQuantitativeModel, false);
 });
 test('pricing completeness requires model lineage and expense basis', () => {
-  const result = assessInputCompleteness('pricing', {productId:'P-1',exposurePeriod:'2026',earnedExposure:100,frequencyModelVersion:'freq-v1',severityModelVersion:'sev-v1',expenseBasis:'approved-expense-v1'});
+  const result = assessInputCompleteness('pricing', {productId:'P-1',exposurePeriod:'2026',earnedExposure:100,exposureUnits:100,expectedFrequency:0.1,averageClaimSeverity:100000,trendRate:0.05,expensePerExposure:2000,reinsuranceCostPerExposure:500,riskMarginRate:0.1,frequencyModelVersion:'freq-v1',severityModelVersion:'sev-v1',expenseBasis:'approved-expense-v1'});
   assert.deepEqual(result.missing, []);
   assert.equal(result.readyForQuantitativeModel, true);
 });
