@@ -16,7 +16,7 @@ const scenarioInput = z.object({
   })).max(100).default([])
 });
 
-function assessInputCompleteness(type, input) {
+export function assessInputCompleteness(type, input) {
   const required = {
     underwriting: ['productId','coveragePeriod','exposureUnits','sumInsured','policyWordingVersion'],
     pricing: ['productId','exposurePeriod','earnedExposure','frequencyModelVersion','severityModelVersion','expenseBasis'],
