@@ -16,6 +16,7 @@ jobs:
       - run: npm run build
       - run: node --check server/src/index.mjs
       - run: node --check server/src/operations.mjs
+      - run: node --check server/src/scenarios.mjs
       - run: node --check server/scripts/bootstrap-admin.mjs
       - run: npm install --prefix server
   android-build:
