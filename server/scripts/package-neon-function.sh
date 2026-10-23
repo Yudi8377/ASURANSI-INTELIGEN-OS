@@ -18,6 +18,15 @@ docker run --rm --platform linux/arm64 \
     node server/scripts/neon-package-smoke.mjs
   '
 
+# Neon builds a SquashFS image from the uploaded archive and can reject a
+# package with too many filesystem entries even when its byte size is small.
+# Keep runtime files but discard package documentation, test fixtures, and
+# source maps that are not needed to execute the API.
+find server/node_modules -type d \\( \
+  -name test -o -name tests -o -name __tests__ -o -name examples -o \
+  -name docs -o -name coverage \\) -prune -exec rm -rf {} +
+find server/node_modules -type f \\( -name '*.map' -o -name '*.md' -o -name '*.markdown' \\) -delete
+
 cp -R server/src build/neon-function/server/src
 cp -R server/node_modules build/neon-function/server/node_modules
 cp server/package.json build/neon-function/server/package.json
