@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { runScenario } from './scenario-engine.mjs';
 
 const scenarioTypes = ['underwriting','pricing','claims','fraud_triage','portfolio_stress','renewal','regulatory_change','liquidity_stress'];
 const scenarioInput = z.object({
@@ -45,6 +46,24 @@ export async function registerScenarioOperations(app, { pool, auth, permit }) {
       [request.user.tenantId,request.user.userId,data.scenarioType,data.title,data.decisionQuestion,data.horizonDays,JSON.stringify(data.assumptions),JSON.stringify(data.inputSnapshot),JSON.stringify(data.evidence),JSON.stringify(completeness)]
     );
     return reply.code(201).send({ data:result.rows[0], notice:'Simulasi tersimpan sebagai draft. Tidak ada prediksi finansial yang dihitung oleh endpoint ini; mesin aktuaria tervalidasi dan persetujuan manusia tetap diperlukan.', completeness });
+  });
+
+  app.post('/api/v1/scenarios/:id/run', { preHandler:[auth,permit('scenarios:run')] }, async (request, reply) => {
+    const parsedId=z.string().uuid().safeParse(request.params.id);
+    if(!parsedId.success) return reply.code(400).send({error:'INVALID_ID'});
+    const selected=await pool.query('SELECT id,scenario_type,input_snapshot,assumptions FROM asuransi.scenario_runs WHERE tenant_id=$1 AND id=$2',[request.user.tenantId,parsedId.data]);
+    if(!selected.rowCount) return reply.code(404).send({error:'NOT_FOUND'});
+    let result;
+    try { result=runScenario(selected.rows[0].scenario_type,selected.rows[0].input_snapshot,selected.rows[0].assumptions); }
+    catch(error) { return reply.code(400).send({error:'SCENARIO_INPUT_INVALID',message:error instanceof Error?error.message:'Input skenario tidak valid.'}); }
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE asuransi.scenario_runs SET outcome_summary=$3::jsonb,model_versions=$4::jsonb,updated_at=now() WHERE tenant_id=$1 AND id=$2',[request.user.tenantId,parsedId.data,JSON.stringify(result),JSON.stringify({engine:result.engineVersion})]);
+      await client.query('INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,metadata) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)',[request.user.tenantId,request.user.userId,'scenario.run','scenario',parsedId.data,request.id,JSON.stringify({scenarioType:selected.rows[0].scenario_type,engineVersion:result.engineVersion,mode:result.mode})]);
+      await client.query('COMMIT');
+    } catch(error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+    return {data:{scenarioId:parsedId.data,result},notice:'Analisis selesai sesuai kemampuan model yang tersedia. Output sensitivitas premi bukan penawaran tarif; semua keputusan komersial memerlukan review manusia.'};
   });
 
   app.get('/api/v1/scenarios', { preHandler:[auth,permit('scenarios:read')] }, async request => {
