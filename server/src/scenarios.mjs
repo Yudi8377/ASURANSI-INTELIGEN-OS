@@ -69,7 +69,7 @@ export async function registerScenarioOperations(app, { pool, auth, permit }) {
   app.get('/api/v1/scenarios', { preHandler:[auth,permit('scenarios:read')] }, async request => {
     const q = z.object({ limit:z.coerce.number().int().min(1).max(100).default(25), offset:z.coerce.number().int().min(0).default(0), status:z.enum(['draft','in_review','approved','rejected','archived']).optional() }).parse(request.query);
     const result = await pool.query(
-      'SELECT id,scenario_type,title,decision_question,horizon_days,input_completeness,status,requires_human_approval,created_at,updated_at FROM asuransi.scenario_runs WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) ORDER BY created_at DESC LIMIT $3 OFFSET $4',
+      'SELECT id,scenario_type,title,decision_question,horizon_days,input_completeness,status,requires_human_approval,outcome_summary,created_at,updated_at FROM asuransi.scenario_runs WHERE tenant_id=$1 AND ($2::text IS NULL OR status=$2) ORDER BY created_at DESC LIMIT $3 OFFSET $4',
       [request.user.tenantId,q.status||null,q.limit,q.offset]);
     return { data:result.rows, limit:q.limit, offset:q.offset };
   });
