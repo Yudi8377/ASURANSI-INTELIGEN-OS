@@ -25,7 +25,7 @@ export default function ScenarioWorkbench({apiMode,onNotice}:{apiMode:boolean;on
  const [items,setItems]=useState<ScenarioDraft[]>([]);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
- const [saved,setSaved]=useState(false);\n const [runBusyId,setRunBusyId]=useState('');\n const [results,setResults]=useState<Record<string,{mode?:string;variants?:Array<Record<string,unknown>>;message?:string}>>({});
+ const [saved,setSaved]=useState(false);\n const [runBusyId,setRunBusyId]=useState('');\n const [results,setResults]=useState<Record<string,{mode?:string;currency?:string;variants?:Array<Record<string,unknown>>;message?:string}>>({});
  const [demoItems,setDemoItems]=useState<ScenarioDraft[]>([]);
  const selected=types.find(x=>x.value===kind)!;
  const refresh=async()=>{if(!apiMode)return;setBusy(true);setError('');try{const r=await getScenarios();setItems(r.data);setResults(Object.fromEntries(r.data.filter(x=>x.outcome_summary&&typeof x.outcome_summary==='object').map(x=>[x.id,x.outcome_summary as {mode?:string;variants?:Array<Record<string,unknown>>;message?:string}])) )}catch(e){setError(e instanceof Error?e.message:'Tidak dapat memuat skenario')}finally{setBusy(false)}};
