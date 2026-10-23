@@ -20,7 +20,7 @@ docker run --rm --platform linux/arm64 \
     find server/node_modules -type d \( \
       -name test -o -name tests -o -name __tests__ -o -name examples -o \
       -name docs -o -name coverage \) -prune -exec rm -rf {} +
-    find server/node_modules -type f \( -name '*.map' -o -name '*.md' -o -name '*.markdown' \) -delete
+    find server/node_modules -type f \( -name "*.map" -o -name "*.md" -o -name "*.markdown" \) -delete
     node server/scripts/neon-package-smoke.mjs
   '
 
