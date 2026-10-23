@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 20
     env:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
       AUTH_ACCESS_TOKEN_SECRET: ${{ secrets.AUTH_ACCESS_TOKEN_SECRET }}
       APP_ORIGIN: ${{ vars.APP_ORIGIN }}
       NEON_PROJECT_ID: rapid-meadow-32896086
@@ -36,6 +37,10 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$NEON_API_KEY" || { echo "::error::Add NEON_API_KEY as a repository Actions secret."; exit 1; }
+          case "$DATABASE_URL" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Add DATABASE_URL as a repository Actions secret pointing to the Neon validation branch (br-curly-butterfly-aob6l79x), not production."; exit 1;;
+          esac
           test "${#AUTH_ACCESS_TOKEN_SECRET}" -ge 32 || { echo "::error::Add AUTH_ACCESS_TOKEN_SECRET as a repository Actions secret (minimum 32 characters)."; exit 1; }
           test -n "$APP_ORIGIN" || { echo "::error::Add APP_ORIGIN as a repository Actions variable, e.g. the deployed dashboard origin."; exit 1; }
           case "$APP_ORIGIN" in https://*) ;; *) echo "::error::APP_ORIGIN must be an HTTPS origin."; exit 1;; esac
@@ -46,9 +51,10 @@ jobs:
         run: |
           set -euo pipefail
           environment_json="$(jq -cn \
+            --arg database_url "$DATABASE_URL" \
             --arg secret "$AUTH_ACCESS_TOKEN_SECRET" \
             --arg origin "$APP_ORIGIN" \
-            '{AUTH_ACCESS_TOKEN_SECRET:$secret,APP_ORIGIN:$origin,NEON_FUNCTION_RUNTIME:"1",NODE_ENV:"production"}')"
+            '{DATABASE_URL:$database_url,AUTH_ACCESS_TOKEN_SECRET:$secret,APP_ORIGIN:$origin,NEON_FUNCTION_RUNTIME:"1",NODE_ENV:"production"}')"
           response_file="$(mktemp)"
           status="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
             --request POST \
@@ -83,7 +89,14 @@ jobs:
               exit 1
             fi
             if [ "$state" = "completed" ] && [ -n "$url" ]; then
-              health="$(curl --silent --show-error --fail --retry 3 --retry-delay 2 "$url/api/health")"
+              health_file="$(mktemp)"
+              health_status="$(curl --silent --show-error --output "$health_file" --write-out '%{http_code}' --retry 3 --retry-delay 2 "$url/api/health")"
+              if [ "$health_status" -lt 200 ] || [ "$health_status" -ge 300 ]; then
+                echo "::error::Validation health endpoint returned HTTP $health_status"
+                cat "$health_file"
+                exit 1
+              fi
+              health="$(cat "$health_file")"
               printf '%s' "$health" | jq .
               printf '%s' "$health" | jq -e '.service == "asuransi-inteligen-api"' >/dev/null
               echo "Validation function health check passed."
