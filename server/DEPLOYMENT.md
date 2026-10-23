@@ -57,3 +57,17 @@ Use a unique password of at least 15 characters. Remove `ADMIN_PASSWORD` from th
 - Backups can be restored to a separate test environment before any real customer data is entered.
 
 Do not use real customer data until the security and compliance release gates above are signed off.
+
+
+## Scenario Engine rollout
+
+The scenario draft and pricing sensitivity API is introduced behind the `scenarios:create`, `scenarios:read`, and `scenarios:run` permissions. The bootstrap system administrator has wildcard permissions; other roles must be granted only the permissions they need.
+
+Before enabling the routes against a live database, review and apply `database/migrations/0002_scenario_runs.sql` through the approved migration workflow. The migration was tested on an isolated Neon validation branch; it has **not** been applied to the production branch by this change.
+
+Current execution maturity:
+- Pricing sensitivity uses a versioned deterministic formula and reports baseline/adverse/stress sensitivities from explicit user-supplied assumptions. It is not a validated actuarial pricing model, tariff, or customer quote.
+- Underwriting, claims, fraud triage, portfolio, renewal, regulatory-change and liquidity scenarios currently produce qualitative scenario plans only; they do not claim numeric forecasts.
+- Every run requires human review. The API writes an audit record and stores the engine version.
+- External evidence submitted through the scenario draft endpoint is unverified/pending review; a caller cannot mark evidence as verified through that endpoint.
+- The UI in demo mode stores drafts in browser memory only. API mode requires the database migration, API deployment, correct permissions, and HTTPS configuration.
