@@ -22,10 +22,11 @@ docker run --rm --platform linux/arm64 \
 # package with too many filesystem entries even when its byte size is small.
 # Keep runtime files but discard package documentation, test fixtures, and
 # source maps that are not needed to execute the API.
-find server/node_modules -type d \\( \
+find server/node_modules -type d \( \
   -name test -o -name tests -o -name __tests__ -o -name examples -o \
-  -name docs -o -name coverage \\) -prune -exec rm -rf {} +
-find server/node_modules -type f \\( -name '*.map' -o -name '*.md' -o -name '*.markdown' \\) -delete
+  -name docs -o -name coverage \
+\) -prune -exec rm -rf {} +
+find server/node_modules -type f \( -name '*.map' -o -name '*.md' -o -name '*.markdown' \) -delete
 
 cp -R server/src build/neon-function/server/src
 cp -R server/node_modules build/neon-function/server/node_modules
@@ -40,5 +41,6 @@ test "$extracted_bytes" -le 134217728
   zip -qr ../asuransiapi.zip .
 )
 compressed_bytes="$(stat -c '%s' build/asuransiapi.zip)"
+entry_count="$(find build/neon-function -type f | wc -l | tr -d ' ')"
 test "$compressed_bytes" -le 33554432
-printf 'Created build/asuransiapi.zip (%s compressed bytes, %s extracted bytes)\n' "$compressed_bytes" "$extracted_bytes"
+printf 'Created build/asuransiapi.zip (%s compressed bytes, %s extracted bytes, %s files)\n' "$compressed_bytes" "$extracted_bytes" "$entry_count"
