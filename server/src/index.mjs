@@ -30,6 +30,11 @@ const clientSchema = z.object({ client_type:z.enum(['individual','company']).def
 async function audit(client, request, actor, action, resource, resourceId, metadata={}) {
   await client.query('INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,ip_hash,user_agent,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[actor.tenantId,actor.userId,action,resource,String(resourceId||''),request.id,null,request.headers['user-agent']||null,JSON.stringify(metadata)]);
 }
+async function ownerBelongsToTenant(ownerUserId, tenantId) {
+  if (!ownerUserId) return true;
+  const result = await pool.query('SELECT 1 FROM asuransi.users WHERE id=$1 AND tenant_id=$2 AND status <> $3 LIMIT 1', [ownerUserId, tenantId, 'disabled']);
+  return result.rowCount === 1;
+}
 async function auth(request, reply) {
   try {
     await request.jwtVerify();
@@ -71,6 +76,7 @@ app.get('/api/v1/clients',{preHandler:[auth,permit('clients:read')]},async reque
 });
 app.post('/api/v1/clients',{preHandler:[auth,permit('clients:create')]},async(request,reply)=>{
  const parsed=clientSchema.safeParse(request.body);if(!parsed.success)return reply.code(400).send({error:'INVALID_INPUT',details:parsed.error.flatten()});
+ if (parsed.data.owner_user_id && !(await ownerBelongsToTenant(parsed.data.owner_user_id, request.user.tenantId))) return reply.code(400).send({error:'INVALID_OWNER_USER',message:'Pemilik data harus merupakan pengguna dalam organisasi yang sama.'});
  const client=await pool.connect();
  try{await client.query('BEGIN');const code='NAS-'+Date.now().toString(36).toUpperCase();const d=parsed.data;
  const r=await client.query(`INSERT INTO asuransi.clients(tenant_id,client_code,client_type,full_name,legal_name,email,phone,status,consent_status,owner_user_id,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id,client_code,client_type,full_name,legal_name,email,phone,status,consent_status,owner_user_id,created_at,updated_at`,[request.user.tenantId,code,d.client_type,d.full_name,d.legal_name||null,d.email||null,d.phone||null,d.status,d.consent_status,d.owner_user_id||null,d.notes||null]);
@@ -80,6 +86,7 @@ app.post('/api/v1/clients',{preHandler:[auth,permit('clients:create')]},async(re
 app.put('/api/v1/clients/:id',{preHandler:[auth,permit('clients:update')]},async(request,reply)=>{
  const id=z.string().uuid().safeParse(request.params.id),parsed=clientSchema.partial().safeParse(request.body);if(!id.success||!parsed.success)return reply.code(400).send({error:'INVALID_INPUT'});
  const allowed=parsed.data;if(!Object.keys(allowed).length)return reply.code(400).send({error:'EMPTY_UPDATE'});
+ if (Object.hasOwn(allowed, 'owner_user_id') && allowed.owner_user_id && !(await ownerBelongsToTenant(allowed.owner_user_id, request.user.tenantId))) return reply.code(400).send({error:'INVALID_OWNER_USER',message:'Pemilik data harus merupakan pengguna dalam organisasi yang sama.'});
  const map={client_type:'client_type',full_name:'full_name',legal_name:'legal_name',email:'email',phone:'phone',status:'status',owner_user_id:'owner_user_id',notes:'notes',consent_status:'consent_status'};
  const sets=[],values=[request.user.tenantId,id.data];for(const [k,v] of Object.entries(allowed)){sets.push(map[k]+'=$'+(values.length+1));values.push(v??null)}sets.push('updated_at=now()');
  const client=await pool.connect();try{await client.query('BEGIN');const r=await client.query(`UPDATE asuransi.clients SET ${sets.join(',')} WHERE tenant_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING id,client_code,client_type,full_name,legal_name,email,phone,status,consent_status,owner_user_id,updated_at`,values);if(!r.rowCount){await client.query('ROLLBACK');return reply.code(404).send({error:'NOT_FOUND'})}await audit(client,request,{tenantId:request.user.tenantId,userId:request.user.userId},'client.update','client',id.data,{fields:Object.keys(allowed)});await client.query('COMMIT');return {data:r.rows[0]}}catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
