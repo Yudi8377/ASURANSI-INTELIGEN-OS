@@ -103,6 +103,19 @@ jobs:
               printf '%s' "$health" | jq .
               printf '%s' "$health" | jq -e '.service == "asuransi-inteligen-api"' >/dev/null
               echo "Validation function health check passed."
+              ready_url="${url%/}/api/ready"
+              echo "Checking validation database readiness endpoint: $ready_url"
+              ready_file="$(mktemp)"
+              ready_status="$(curl --silent --show-error --output "$ready_file" --write-out '%{http_code}' --retry 3 --retry-delay 2 "$ready_url")"
+              if [ "$ready_status" -lt 200 ] || [ "$ready_status" -ge 300 ]; then
+                echo "::error::Validation database readiness endpoint returned HTTP $ready_status"
+                cat "$ready_file"
+                exit 1
+              fi
+              ready="$(cat "$ready_file")"
+              printf '%s' "$ready" | jq .
+              printf '%s' "$ready" | jq -e '.status == "ready" and .database == "connected" and .service == "asuransi-inteligen-api"' >/dev/null
+              echo "Validation database readiness check passed."
               exit 0
             fi
             sleep 15
