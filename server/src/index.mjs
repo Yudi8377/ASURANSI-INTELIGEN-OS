@@ -40,6 +40,18 @@ async function auth(request, reply) {
     await request.jwtVerify();
     if (!request.user?.userId || !request.user?.tenantId || !Array.isArray(request.user?.permissions)) throw new Error('Invalid token claims');
   } catch { return reply.code(401).send({error:'UNAUTHORIZED',message:'Sesi tidak valid atau telah kedaluwarsa.'}); }
+
+  // JWTs are short-lived, but authorization must also honor account and tenant revocation immediately.
+  const principal = await pool.query(
+    'SELECT u.status AS user_status, t.status AS tenant_status FROM asuransi.users u JOIN asuransi.tenants t ON t.id=u.tenant_id WHERE u.id=$1 AND u.tenant_id=$2 LIMIT 1',
+    [request.user.userId, request.user.tenantId]
+  );
+  if (!principal.rowCount || principal.rows[0].user_status !== 'active') {
+    return reply.code(401).send({error:'UNAUTHORIZED',message:'Akun tidak aktif atau sesi telah dicabut.'});
+  }
+  if (principal.rows[0].tenant_status !== 'active') {
+    return reply.code(403).send({error:'TENANT_SUSPENDED',message:'Organisasi tidak aktif. Hubungi administrator.'});
+  }
 }
 function permit(permission) { return async (request, reply) => { if (!request.user?.permissions?.includes(permission) && !request.user?.permissions?.includes('*')) return reply.code(403).send({error:'FORBIDDEN',message:'Anda tidak memiliki izin untuk tindakan ini.'}); }; }
 app.get('/api/health', async (_request, reply) => {
