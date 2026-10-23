@@ -1,0 +1,90 @@
+name: Deploy Neon Functions (validation only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_validation_deploy:
+        description: Type DEPLOY-VALIDATION to deploy to the non-production Neon branch
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: neon-validation-deploy
+  cancel-in-progress: false
+jobs:
+  deploy-validation:
+    if: ${{ inputs.confirm_validation_deploy == 'DEPLOY-VALIDATION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      AUTH_ACCESS_TOKEN_SECRET: ${{ secrets.AUTH_ACCESS_TOKEN_SECRET }}
+      APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+      NEON_PROJECT_ID: rapid-meadow-32896086
+      NEON_BRANCH_ID: br-curly-butterfly-aob6l79x
+      NEON_FUNCTION_SLUG: asuransiapi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - name: Validate deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$NEON_API_KEY" || { echo "::error::Add NEON_API_KEY as a repository Actions secret."; exit 1; }
+          test "${#AUTH_ACCESS_TOKEN_SECRET}" -ge 32 || { echo "::error::Add AUTH_ACCESS_TOKEN_SECRET as a repository Actions secret (minimum 32 characters)."; exit 1; }
+          test -n "$APP_ORIGIN" || { echo "::error::Add APP_ORIGIN as a repository Actions variable, e.g. the deployed dashboard origin."; exit 1; }
+          case "$APP_ORIGIN" in https://*) ;; *) echo "::error::APP_ORIGIN must be an HTTPS origin."; exit 1;; esac
+      - name: Build and smoke-test package
+        run: bash server/scripts/package-neon-function.sh
+      - name: Deploy only to validation branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          environment_json="$(jq -cn \
+            --arg secret "$AUTH_ACCESS_TOKEN_SECRET" \
+            --arg origin "$APP_ORIGIN" \
+            '{AUTH_ACCESS_TOKEN_SECRET:$secret,APP_ORIGIN:$origin,NEON_FUNCTION_RUNTIME:"1",NODE_ENV:"production"}')"
+          response_file="$(mktemp)"
+          status="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG/deployments" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --form "zip=@build/asuransiapi.zip;type=application/zip" \
+            --form "runtime=nodejs24" \
+            --form "environment=$environment_json")"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Neon deployment request failed with HTTP $status"
+            jq 'del(.. | .environment? // empty)' "$response_file" 2>/dev/null || cat "$response_file"
+            exit 1
+          fi
+          echo "Neon accepted validation deployment (HTTP $status)."
+          jq '{id,slug,status,created_at,updated_at}' "$response_file" || true
+      - name: Wait for deployment and smoke-test health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 24); do
+            response="$(curl --silent --show-error --fail \
+              --header "Authorization: Bearer $NEON_API_KEY" \
+              --header "Accept: application/json" \
+              "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG")"
+            state="$(printf '%s' "$response" | jq -r '.. | objects | .status? // empty' | tail -n 1)"
+            url="$(printf '%s' "$response" | jq -r '.. | objects | .invocation_url? // empty' | head -n 1)"
+            echo "Deployment status check $attempt: ${state:-pending}"
+            if [ "$state" = "failed" ]; then
+              echo "::error::Neon reports a failed function deployment."
+              printf '%s' "$response" | jq 'del(.. | .environment? // empty)'
+              exit 1
+            fi
+            if [ "$state" = "completed" ] && [ -n "$url" ]; then
+              health="$(curl --silent --show-error --fail --retry 3 --retry-delay 2 "$url/api/health")"
+              printf '%s' "$health" | jq .
+              printf '%s' "$health" | jq -e '.service == "asuransi-inteligen-api"' >/dev/null
+              echo "Validation function health check passed."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Timed out waiting for Neon deployment completion; inspect Neon function deployment logs."
+          exit 1
