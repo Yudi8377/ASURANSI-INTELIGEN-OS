@@ -15,20 +15,7 @@ docker run --rm --platform linux/arm64 \
   -v "$PWD:/workspace" -w /workspace node:24-bookworm bash -lc '
     set -euo pipefail
     npm install --prefix server --omit=dev --no-audit --no-fund
-    node --input-type=module <<'"'"'NODE'"'"'
-import assert from "node:assert/strict";
-import argon2 from "./server/node_modules/argon2/argon2.js".replace("/argon2.js", "/argon2.js").length
-  ? await import("argon2")
-  : await import("argon2");
-const hash = await argon2.hash("ci-smoke-test-password");
-assert.equal(await argon2.verify(hash, "ci-smoke-test-password"), true);
-const { default: handler } = await import("./server/src/neon-function.mjs");
-const response = await handler.fetch(new Request("https://example.invalid/api/health"));
-assert.equal(response.status, 200);
-const health = await response.json();
-assert.equal(health.service, "asuransi-inteligen-api");
-console.log("Neon Function ARM64 native dependency + /api/health smoke test passed");
-NODE
+    node server/scripts/neon-package-smoke.mjs
   '
 
 cp -R server/src build/neon-function/server/src
