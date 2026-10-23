@@ -38,14 +38,20 @@ export async function registerScenarioOperations(app, { pool, auth, permit }) {
     if (!parsed.success) return reply.code(400).send({ error:'INVALID_INPUT', details:parsed.error.flatten() });
     const data = parsed.data;
     const completeness = assessInputCompleteness(data.scenarioType, data.inputSnapshot);
-    const result = await pool.query(
-      `INSERT INTO asuransi.scenario_runs
-       (tenant_id, created_by, scenario_type, title, decision_question, horizon_days, assumptions, input_snapshot, evidence, input_completeness, status, requires_human_approval)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'draft',true)
-       RETURNING id,scenario_type,title,decision_question,horizon_days,assumptions,input_snapshot,evidence,input_completeness,status,requires_human_approval,created_at`,
-      [request.user.tenantId,request.user.userId,data.scenarioType,data.title,data.decisionQuestion,data.horizonDays,JSON.stringify(data.assumptions),JSON.stringify(data.inputSnapshot),JSON.stringify(data.evidence),JSON.stringify(completeness)]
-    );
-    return reply.code(201).send({ data:result.rows[0], notice:'Simulasi tersimpan sebagai draft. Tidak ada prediksi finansial yang dihitung oleh endpoint ini; mesin aktuaria tervalidasi dan persetujuan manusia tetap diperlukan.', completeness });
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `INSERT INTO asuransi.scenario_runs
+         (tenant_id, created_by, scenario_type, title, decision_question, horizon_days, assumptions, input_snapshot, evidence, input_completeness, status, requires_human_approval)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'draft',true)
+         RETURNING id,scenario_type,title,decision_question,horizon_days,assumptions,input_snapshot,evidence,input_completeness,status,requires_human_approval,created_at`,
+        [request.user.tenantId,request.user.userId,data.scenarioType,data.title,data.decisionQuestion,data.horizonDays,JSON.stringify(data.assumptions),JSON.stringify(data.inputSnapshot),JSON.stringify(data.evidence),JSON.stringify(completeness)]
+      );
+      await client.query('INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,metadata) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)',[request.user.tenantId,request.user.userId,'scenario.create','scenario',result.rows[0].id,request.id,JSON.stringify({scenarioType:data.scenarioType,horizonDays:data.horizonDays,missingInputs:completeness.missing.length})]);
+      await client.query('COMMIT');
+      return reply.code(201).send({ data:result.rows[0], notice:'Simulasi tersimpan sebagai draft. Tidak ada prediksi finansial yang dihitung oleh endpoint ini; mesin aktuaria tervalidasi dan persetujuan manusia tetap diperlukan.', completeness });
+    } catch(error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
   });
 
   app.post('/api/v1/scenarios/:id/run', { preHandler:[auth,permit('scenarios:run')] }, async (request, reply) => {
