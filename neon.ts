@@ -7,7 +7,6 @@ export default defineConfig({
     asuransiapi: {
       name: "Asuransi Inteligen API",
       source: "server/src/neon-function.mjs",
-      runtime: "nodejs24",
       externalPackages: ["argon2"],
       env: {
         AUTH_ACCESS_TOKEN_SECRET: process.env.AUTH_ACCESS_TOKEN_SECRET,
@@ -16,5 +15,11 @@ export default defineConfig({
         NODE_ENV: "production"
       }
     }
-  }
+  },
+  // Runtime is per-branch tuning in the current Neon config schema.
+  branch: () => ({
+    functions: {
+      asuransiapi: { runtime: "nodejs24" }
+    }
+  })
 });
