@@ -17,10 +17,10 @@ docker run --rm --platform linux/arm64 \
     npm install --prefix server --omit=dev --no-audit --no-fund
     # Prune while still inside the container: npm creates root-owned files
     # on the mounted workspace, which cannot reliably be removed by the runner.
-    find server/node_modules -type d \\( \
+    find server/node_modules -type d \( \
       -name test -o -name tests -o -name __tests__ -o -name examples -o \
-      -name docs -o -name coverage \\) -prune -exec rm -rf {} +
-    find server/node_modules -type f \\( -name '*.map' -o -name '*.md' -o -name '*.markdown' \\) -delete
+      -name docs -o -name coverage \) -prune -exec rm -rf {} +
+    find server/node_modules -type f \( -name '*.map' -o -name '*.md' -o -name '*.markdown' \) -delete
     node server/scripts/neon-package-smoke.mjs
   '
 
