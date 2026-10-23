@@ -75,15 +75,21 @@ Current execution maturity:
 
 ## Optional API hosting on Neon Functions
 
-The API now has a fetch adapter at `server/src/neon-function.mjs`. This is a deployment path to validate—not a claim that the API is already deployed. Neon Functions are supported in this project's `aws-ap-southeast-1` region, but production deployment still requires operator-controlled secret provisioning and smoke tests.
+The API has a fetch adapter at `server/src/neon-function.mjs` and a repo-level `neon.ts` deployment policy. This is deployment configuration, **not a claim that the API is deployed**. Neon Functions run Node.js 24 and the project's region must be confirmed as one of Neon Functions' supported regions before deploying.
 
-From a trusted terminal with the Neon CLI installed and the correct project/production branch selected:
+### Deployment configuration
 
-1. Change into `server/` so the API's `package.json` and dependencies are in scope.
-2. Provision a unique `AUTH_ACCESS_TOKEN_SECRET` (at least 32 characters; prefer `openssl rand -hex 32`) in a protected local environment file. Never commit it or paste it into chat.
-3. Set `NEON_FUNCTION_RUNTIME=1` and the exact dashboard origin in `APP_ORIGIN`. Neon injects `DATABASE_URL` for the selected branch.
-4. Review the target branch and environment carefully, then deploy the function with slug `asuransiapi` and source `src/neon-function.mjs` using the current Neon CLI. Pass secrets only through the CLI's supported protected environment mechanism; never put them in shell history or logs.
-5. Retrieve the invocation URL from Neon and test `GET /api/health`, CORS preflight, invalid login rate limits, and authenticated tenant isolation before connecting the dashboard.
-6. Keep the API private/unannounced until all production release gates in this document and `SECURITY.md` are completed.
+- `neon.ts` declares the `asuransiapi` function, entry point, Node.js 24 runtime, and the `argon2` native package as external. Neon must stage the package's Linux ARM64/glibc build; a successful bundle alone is not proof the native module can load.
+- `AUTH_ACCESS_TOKEN_SECRET` and `APP_ORIGIN` are read from the deploy environment. `DATABASE_URL` is injected by Neon for the target branch. Do not place credentials in this repository, GitHub Actions logs, or chat.
+- The root dependency `@neon/config` is pinned so the committed policy has a declared configuration-library version.
 
-The adapter uses Fastify's injection interface to translate web `Request` objects into the existing routes. It does not bypass authentication, authorization, or validation. Confirm behavior on a non-production branch first. Scenario endpoints additionally require migration `0002_scenario_runs.sql`, which has not been applied to production.
+From a trusted terminal with the Neon CLI installed and authenticated:
+
+1. Confirm the Neon project region and explicitly select/verify a **non-production branch** first.
+2. Create a local, gitignored `.env.local` containing `AUTH_ACCESS_TOKEN_SECRET=<unique random secret>` and `APP_ORIGIN=<exact HTTPS dashboard origin>`. Generate a secret with `openssl rand -hex 32`. Never commit this file or paste the value into chat.
+3. Install the CLI if needed (`npm install --global neon`), then run the CLI's configuration plan against the intended branch and inspect every proposed change before applying.
+4. Deploy the committed policy using `neon deploy --env .env.local` only after verifying the CLI is targeting the intended project and branch. Do not apply the policy to production as part of a smoke test.
+5. Retrieve the invocation URL from Neon and test `GET /api/health`, CORS preflight, invalid-login rate limits, database connectivity, and authenticated tenant isolation.
+6. Only after these tests pass should the dashboard's `VITE_API_BASE_URL` be pointed at the function. Keep the API private/unannounced until all production release gates in this document and `SECURITY.md` are completed.
+
+The adapter uses Fastify's injection interface to translate web `Request` objects into the existing routes. It does not bypass authentication, authorization, or validation. Deployment must still be verified on a non-production branch. Scenario endpoints additionally require migration `0002_scenario_runs.sql`, which has not been applied to production.
