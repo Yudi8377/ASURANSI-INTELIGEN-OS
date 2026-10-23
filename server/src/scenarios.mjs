@@ -12,7 +12,7 @@ const scenarioInput = z.object({
   evidence: z.array(z.object({
     label: z.string().trim().min(1).max(250),
     sourceUrl: z.string().url().max(2000).optional(),
-    verificationStatus: z.enum(['verified','unverified','pending_review']).default('pending_review'),
+    verificationStatus: z.enum(['unverified','pending_review']).default('pending_review'),
     effectiveDate: z.string().date().optional()
   })).max(100).default([])
 });
