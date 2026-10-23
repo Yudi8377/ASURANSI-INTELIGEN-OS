@@ -1,5 +1,10 @@
 name: Deploy Neon Functions (validation only)
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-neon-validation.yml'
   workflow_dispatch:
     inputs:
       confirm_validation_deploy:
@@ -13,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy-validation:
-    if: ${{ inputs.confirm_validation_deploy == 'DEPLOY-VALIDATION' }}
+    if: ${{ github.event_name == 'push' || inputs.confirm_validation_deploy == 'DEPLOY-VALIDATION' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
