@@ -50,3 +50,16 @@ jobs:
         with:
           gradle-version: '8.13'
       - run: gradle -p apps/android assembleDebug
+  neon-function-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - name: Build and smoke-test Linux ARM64 package
+        run: bash server/scripts/package-neon-function.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neon-function-package
+          path: build/asuransiapi.zip
+          if-no-files-found: error
+          retention-days: 3
