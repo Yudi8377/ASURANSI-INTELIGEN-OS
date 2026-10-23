@@ -83,5 +83,10 @@ app.delete('/api/v1/clients/:id',{preHandler:[auth,permit('clients:delete')]},as
 await registerOperations(app, { pool, auth, permit });
 await registerScenarioOperations(app, { pool, auth, permit });
 app.setNotFoundHandler((request,reply)=>reply.code(404).send({error:'NOT_FOUND',requestId:request.id}));
-const port=Number(process.env.API_PORT||8080);
-await app.listen({port,host:process.env.API_HOST||'0.0.0.0'});
+export { app };
+
+// Neon Functions invokes the app through Fastify.inject; standalone hosts keep the normal listener.
+if (process.env.NEON_FUNCTION_RUNTIME !== '1') {
+  const port=Number(process.env.API_PORT||8080);
+  await app.listen({port,host:process.env.API_HOST||'0.0.0.0'});
+}
