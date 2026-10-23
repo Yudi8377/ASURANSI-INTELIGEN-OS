@@ -71,3 +71,19 @@ Current execution maturity:
 - Every run requires human review. The API writes an audit record and stores the engine version.
 - External evidence submitted through the scenario draft endpoint is unverified/pending review; a caller cannot mark evidence as verified through that endpoint.
 - The UI in demo mode stores drafts in browser memory only. API mode requires the database migration, API deployment, correct permissions, and HTTPS configuration.
+
+
+## Optional API hosting on Neon Functions
+
+The API now has a fetch adapter at `server/src/neon-function.mjs`. This is a deployment path to validate—not a claim that the API is already deployed. Neon Functions are supported in this project's `aws-ap-southeast-1` region, but production deployment still requires operator-controlled secret provisioning and smoke tests.
+
+From a trusted terminal with the Neon CLI installed and the correct project/production branch selected:
+
+1. Change into `server/` so the API's `package.json` and dependencies are in scope.
+2. Provision a unique `AUTH_ACCESS_TOKEN_SECRET` (at least 32 characters; prefer `openssl rand -hex 32`) in a protected local environment file. Never commit it or paste it into chat.
+3. Set `NEON_FUNCTION_RUNTIME=1` and the exact dashboard origin in `APP_ORIGIN`. Neon injects `DATABASE_URL` for the selected branch.
+4. Review the target branch and environment carefully, then deploy the function with slug `asuransiapi` and source `src/neon-function.mjs` using the current Neon CLI. Pass secrets only through the CLI's supported protected environment mechanism; never put them in shell history or logs.
+5. Retrieve the invocation URL from Neon and test `GET /api/health`, CORS preflight, invalid login rate limits, and authenticated tenant isolation before connecting the dashboard.
+6. Keep the API private/unannounced until all production release gates in this document and `SECURITY.md` are completed.
+
+The adapter uses Fastify's injection interface to translate web `Request` objects into the existing routes. It does not bypass authentication, authorization, or validation. Confirm behavior on a non-production branch first. Scenario endpoints additionally require migration `0002_scenario_runs.sql`, which has not been applied to production.
