@@ -37,14 +37,13 @@ async function auth(request, reply) {
   } catch { return reply.code(401).send({error:'UNAUTHORIZED',message:'Sesi tidak valid atau telah kedaluwarsa.'}); }
 }
 function permit(permission) { return async (request, reply) => { if (!request.user?.permissions?.includes(permission) && !request.user?.permissions?.includes('*')) return reply.code(403).send({error:'FORBIDDEN',message:'Anda tidak memiliki izin untuk tindakan ini.'}); }; }
-app.get('/api/health', async () => ({ status:'ok', service:'asuransi-inteligen-api', version:'0.1.0', time:new Date().toISOString() }));
-app.get('/api/ready', async (_request, reply) => {
+app.get('/api/health', async (_request, reply) => {
   try {
     await pool.query('SELECT 1');
-    return { status:'ready', service:'asuransi-inteligen-api', database:'connected' };
+    return { status:'ok', service:'asuransi-inteligen-api', version:'0.1.0', database:'connected', time:new Date().toISOString() };
   } catch (error) {
-    app.log.error({ err:error }, 'readiness database check failed');
-    return reply.code(503).send({ status:'not_ready', service:'asuransi-inteligen-api', database:'unavailable' });
+    app.log.error({ err:error }, 'health database check failed');
+    return reply.code(503).send({ status:'degraded', service:'asuransi-inteligen-api', database:'unavailable', time:new Date().toISOString() });
   }
 });
 app.post('/api/v1/auth/login', { config:{ rateLimit:{max:8,timeWindow:'1 minute'} } }, async (request, reply) => {
