@@ -19,11 +19,12 @@ jobs:
       - run: npm run build
       - run: node --check server/src/index.mjs
       - run: node --check server/src/neon-function.mjs
+      - run: node --check server/src/neon-fetch-adapter.mjs
       - run: node --check server/src/operations.mjs
       - run: node --check server/src/scenarios.mjs
       - run: node --check server/scripts/bootstrap-admin.mjs
       - run: npm install --prefix server
-      - run: node --test server/test/scenarios.test.mjs
+      - run: node --test server/test/*.test.mjs
   android-build:
     runs-on: ubuntu-latest
     steps:
