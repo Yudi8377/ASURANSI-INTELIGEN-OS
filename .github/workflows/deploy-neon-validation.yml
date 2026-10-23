@@ -89,8 +89,11 @@ jobs:
               exit 1
             fi
             if [ "$state" = "completed" ] && [ -n "$url" ]; then
+              # invocation_url normally ends with /. Remove it before appending the API path.
+              health_url="${url%/}/api/health"
+              echo "Checking validation health endpoint: $health_url"
               health_file="$(mktemp)"
-              health_status="$(curl --silent --show-error --output "$health_file" --write-out '%{http_code}' --retry 3 --retry-delay 2 "$url/api/health")"
+              health_status="$(curl --silent --show-error --output "$health_file" --write-out '%{http_code}' --retry 3 --retry-delay 2 "$health_url")"
               if [ "$health_status" -lt 200 ] || [ "$health_status" -ge 300 ]; then
                 echo "::error::Validation health endpoint returned HTTP $health_status"
                 cat "$health_file"
