@@ -1,5 +1,6 @@
 import { listIntelligenceAgents } from './intelligence-agents.mjs';
 import { runIntelligenceResearch } from './intelligence-orchestrator.mjs';
+import { listIntelligenceSourceDomains, getIntelligenceSourceCatalogSummary } from './intelligence-source-registry.mjs';
 import { z } from 'zod';
 
 export async function registerOperations(app, { pool, auth, permit }) {
@@ -34,6 +35,10 @@ export async function registerOperations(app, { pool, auth, permit }) {
       'SELECT source_key,title,publisher,source_url,jurisdiction,source_type,published_at,checked_at,version_label,content_sha256,status,created_at,updated_at FROM asuransi.knowledge_sources ORDER BY jurisdiction, publisher, title LIMIT 250');
     return {data:result.rows};
   });
+  app.get('/api/v1/intelligence/sources', { preHandler:[auth,permit('intelligence:read')] }, async () => {
+    return { data:listIntelligenceSourceDomains(), summary:getIntelligenceSourceCatalogSummary(), notice:'Katalog perencanaan; koneksi sumber tidak dianggap aktif sampai adapter, izin, dan pengujian berhasil.' };
+  });
+
   app.get('/api/v1/intelligence/agents', { preHandler:[auth,permit('intelligence:read')] }, async () => {
     return { data:listIntelligenceAgents(), mode:'foundation', notice:'Agen connector belum aktif sebelum sumber disetujui dan dikonfigurasi. Registry ini bukan bukti bahwa semua agen sudah berjalan.' };
   });
