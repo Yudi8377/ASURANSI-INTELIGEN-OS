@@ -45,7 +45,7 @@ export async function registerRequiredMfaEnrollmentRoutes(app, { pool }) {
   });
 
   app.post('/api/v1/auth/mfa/required/enroll/confirm', { config:{ rateLimit:{max:6,timeWindow:'1 minute'} } }, async (request, reply) => {
-    const input = z.object({ enrollmentToken:z.string().min(20).max(4096), code:z.string().regex(/^\\d{6}$/) }).safeParse(request.body);
+    const input = z.object({ enrollmentToken:z.string().min(20).max(4096), code:z.string().regex(/^\d{6}$/) }).safeParse(request.body);
     if (!input.success) return reply.code(400).send({ error:'INVALID_INPUT', message:'Tantangan atau kode MFA tidak valid.' });
     const user = await getRequiredEnrollmentPrincipal(app, pool, reply, input.data.enrollmentToken);
     if (!user) return;
