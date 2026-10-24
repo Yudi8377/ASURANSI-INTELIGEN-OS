@@ -22,7 +22,7 @@ function getItems(payload) {
 }
 
 function cleanText(value, max = MAX_SUMMARY_LENGTH) {
-  return typeof value === 'string' ? value.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, max) : '';
+  return typeof value === 'string' ? value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : '';
 }
 
 function normalizeItem(item, source, retrievedAt) {
