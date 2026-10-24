@@ -2,7 +2,7 @@ export function findLoginPrincipal(pool, email) {
   if (!pool || typeof pool.query !== 'function') {
     throw new TypeError('findLoginPrincipal requires a pool with query()');
   }
-  return pool.query(`SELECT u.id,u.tenant_id,u.email,u.full_name,u.password_hash,u.status,u.mfa_enabled,u.mfa_secret_encrypted,u.mfa_last_counter,t.status AS tenant_status,
+  return pool.query(`SELECT u.id,u.tenant_id,u.email,u.full_name,u.password_hash,u.status,u.mfa_enabled,u.mfa_secret_encrypted,u.mfa_pending_secret_encrypted,u.mfa_last_counter,t.status AS tenant_status,
     COALESCE(jsonb_agg(DISTINCT perm.value) FILTER (WHERE perm.value IS NOT NULL),'[]'::jsonb) AS permissions
     FROM asuransi.users u
     JOIN asuransi.tenants t ON t.id=u.tenant_id
