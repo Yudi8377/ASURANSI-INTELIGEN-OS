@@ -8,7 +8,7 @@ export function createAuthGuard({ pool }) {
       await request.jwtVerify();
       // MFA challenge tokens are only for the MFA verification endpoints. Reject
       // them here even if a future issuer accidentally adds access-token claims.
-      if (request.user?.purpose === 'mfa_challenge' ||
+      if (request.user?.purpose !== undefined ||
           !request.user?.userId ||
           !request.user?.tenantId ||
           !Array.isArray(request.user?.permissions)) {
