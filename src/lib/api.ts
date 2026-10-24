@@ -15,9 +15,31 @@ async function call<T>(path: string, init: RequestInit = {}, auth = true): Promi
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
-export async function login(email:string,password:string) {
-  const result = await call<{accessToken:string;expiresIn:number;user:{id:string;email:string;fullName:string;tenantId:string;permissions:string[]}}>('/v1/auth/login',{method:'POST',body:JSON.stringify({email,password})},false);
+type AuthUser = {id:string;email:string;fullName:string;tenantId:string;permissions:string[]};
+type AuthSession = {accessToken:string;expiresIn:number;user:AuthUser};
+export type LoginResult = AuthSession | {mfaRequired:true;challengeToken:string;expiresIn:number} | {mfaEnrollmentRequired:true;enrollmentToken:string;expiresIn:number};
+function establishSession(result: AuthSession) {
   token=result.accessToken; expiresAt=Date.now()+Math.max(0,result.expiresIn-15)*1000; return result;
+}
+export async function login(email:string,password:string): Promise<LoginResult> {
+  const result = await call<LoginResult>('/v1/auth/login',{method:'POST',body:JSON.stringify({email,password})},false);
+  if ('accessToken' in result) establishSession(result);
+  return result;
+}
+export async function verifyMfa(challengeToken:string,code:string) {
+  const result = await call<AuthSession>('/v1/auth/mfa/verify',{method:'POST',body:JSON.stringify({challengeToken,code})},false);
+  return establishSession(result);
+}
+export async function verifyMfaRecovery(challengeToken:string,code:string) {
+  const result = await call<AuthSession>('/v1/auth/mfa/recovery/verify',{method:'POST',body:JSON.stringify({challengeToken,code})},false);
+  return establishSession(result);
+}
+export type RequiredMfaSetup = {secret:string;otpauthUrl:string;issuer:string;account:string;algorithm:string;digits:number;periodSeconds:number;enrollmentTokenExpiresIn:number};
+export function startRequiredMfaEnrollment(enrollmentToken:string) {
+  return call<RequiredMfaSetup>('/v1/auth/mfa/required/enroll/start',{method:'POST',body:JSON.stringify({enrollmentToken})},false);
+}
+export function confirmRequiredMfaEnrollment(enrollmentToken:string,code:string) {
+  return call<{mfaEnabled:boolean;accessTokenIssued:false;message:string}>('/v1/auth/mfa/required/enroll/confirm',{method:'POST',body:JSON.stringify({enrollmentToken,code})},false);
 }
 export function getClients(search='') {
   const q = new URLSearchParams(); if(search.trim()) q.set('search',search.trim());
