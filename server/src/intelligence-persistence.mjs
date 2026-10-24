@@ -12,10 +12,10 @@ const toRow = f => ({
   magnitude:f.magnitude, event_date_label:f.eventDateLabel, event_time_label:f.eventTimeLabel, payload:f
 });
 
-export async function registerIntelligencePersistence(app, {pool,auth,permit}) {
+export async function registerIntelligencePersistence(app, {pool,auth,permit,researchRunner=runIntelligenceResearch}) {
   app.post('/api/v1/intelligence/research/run', {preHandler:[auth,permit('intelligence:research')]}, async (request,reply) => {
     let result;
-    try { result = await runIntelligenceResearch(); }
+    try { result = await researchRunner(); }
     catch (error) {
       request.log.error({err:error,requestId:request.id},'intelligence research failed');
       return reply.code(503).send({error:'INTELLIGENCE_UNAVAILABLE',message:'Konfigurasi sumber belum valid atau layanan belum tersedia.',requestId:request.id});
