@@ -7,8 +7,9 @@ const toRow = f => ({
   publisher:f.publisher, attribution:f.attribution, provider_record_id:f.providerRecordId,
   agent_id:f.agentId, retrieved_at:f.retrievedAt, verification_status:f.verificationStatus,
   confidence:f.confidence, event_type:f.eventType, location:f.location,
-  latitude:f.latitude, longitude:f.longitude, magnitude:f.magnitude,
-  event_date_label:f.eventDateLabel, event_time_label:f.eventTimeLabel, payload:f
+  latitude:Number.isFinite(f.latitude) && f.latitude >= -90 && f.latitude <= 90 ? f.latitude : null,
+  longitude:Number.isFinite(f.longitude) && f.longitude >= -180 && f.longitude <= 180 ? f.longitude : null,
+  magnitude:f.magnitude, event_date_label:f.eventDateLabel, event_time_label:f.eventTimeLabel, payload:f
 });
 
 export async function registerIntelligencePersistence(app, {pool,auth,permit}) {
