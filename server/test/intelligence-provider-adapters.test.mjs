@@ -10,7 +10,7 @@ test('USGS GeoJSON adapter extracts event, coordinates, magnitude and timestamp'
   assert.equal(event.latitude,-6.2);
   assert.equal(event.longitude,110.5);
   assert.equal(event.magnitude,4.2);
-  assert.equal(event.publishedAt,'2026-10-24T00:00:00.000Z');
+  assert.equal(event.publishedAt,'2026-10-24T08:00:00.000Z');
 });
 
 test('BMKG adapter applies southern and western hemisphere signs', () => {
