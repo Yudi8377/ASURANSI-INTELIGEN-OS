@@ -9,6 +9,7 @@ import pg from 'pg';
 import { z } from 'zod';
 import { registerOperations } from './operations.mjs';
 import { registerScenarioOperations } from './scenarios.mjs';
+import { registerIntelligencePersistence } from './intelligence-persistence.mjs';
 import { createAuthGuard } from './auth-guard.mjs';
 import { registerClientOperations } from './clients.mjs';
 import { findLoginPrincipal } from './login-principal.mjs';
@@ -57,6 +58,7 @@ app.post('/api/v1/auth/login', { config:{ rateLimit:{max:8,timeWindow:'1 minute'
 app.get('/api/v1/me',{preHandler:[auth]},async request=>({user:{userId:request.user.userId,tenantId:request.user.tenantId,email:request.user.email,permissions:request.user.permissions}}));
 await registerClientOperations(app, { pool, auth, permit });
 await registerOperations(app, { pool, auth, permit });
+await registerIntelligencePersistence(app, { pool, auth, permit });
 await registerScenarioOperations(app, { pool, auth, permit });
 app.setNotFoundHandler((request,reply)=>reply.code(404).send({error:'NOT_FOUND',requestId:request.id}));
 export { app };
