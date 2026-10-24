@@ -3,6 +3,16 @@ function toIsoFromEpoch(value) {
   return Number.isFinite(n) && n > 0 ? new Date(n).toISOString() : null;
 }
 
+function parseBmkgCoordinate(value, negativeHemisphere) {
+  const text = String(value ?? '').trim().toUpperCase().replace(',', '.');
+  const match = text.match(/-?\\d+(?:\\.\\d+)?/);
+  if (!match) return null;
+  const numeric = Number(match[0]);
+  if (!Number.isFinite(numeric)) return null;
+  const negative = negativeHemisphere.some(hemisphere => text.includes(hemisphere));
+  return negative ? -Math.abs(numeric) : Math.abs(numeric);
+}
+
 function cleanString(value) {
   return typeof value === 'string' ? value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '';
 }
