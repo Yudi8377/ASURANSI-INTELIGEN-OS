@@ -1,0 +1,22 @@
+name: Validate public hazard source endpoints
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_live_source_check:
+        description: Type CHECK-PUBLIC-SOURCES to make read-only requests to the public BMKG and USGS feeds
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate-public-sources:
+    if: ${{ inputs.confirm_live_source_check == 'CHECK-PUBLIC-SOURCES' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate live public feed schemas
+        run: node server/scripts/validate-public-hazard-sources.mjs
