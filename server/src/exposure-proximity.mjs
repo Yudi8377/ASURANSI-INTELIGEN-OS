@@ -1,4 +1,5 @@
 const EARTH_RADIUS_KM = 6371.0088;
+const MAX_COMPARISONS = 10_000;
 
 function coordinate(value, name, min, max) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
@@ -8,7 +9,9 @@ function coordinate(value, name, min, max) {
 }
 
 function validatePoint(point, label) {
-  if (!point || typeof point !== 'object') throw new Error(`Invalid ${label}: expected an object.`);
+  if (!point || typeof point !== 'object' || Array.isArray(point)) {
+    throw new Error(`Invalid ${label}: expected an object.`);
+  }
   return {
     latitude: coordinate(point.latitude, `${label}.latitude`, -90, 90),
     longitude: coordinate(point.longitude, `${label}.longitude`, -180, 180)
@@ -35,6 +38,9 @@ export function matchAssetEventProximity(assets, events, options = {}) {
   if (!Array.isArray(assets) || !Array.isArray(events)) {
     throw new Error('Assets and events must be arrays.');
   }
+  if (assets.length * events.length > MAX_COMPARISONS) {
+    throw new Error(`Input too large: at most ${MAX_COMPARISONS} asset-event comparisons are allowed per call.`);
+  }
   const thresholds = {
     closeKm: options.closeKm ?? 5,
     elevatedKm: options.elevatedKm ?? 25,
@@ -59,9 +65,9 @@ export function matchAssetEventProximity(assets, events, options = {}) {
   }));
 
   const matches = [];
-  for (const { asset } of validAssets) {
-    for (const { event, point } of validEvents) {
-      const distanceKm = haversineKm(validatePoint(asset, 'asset'), point);
+  for (const { asset, point: assetPoint } of validAssets) {
+    for (const { event, point: eventPoint } of validEvents) {
+      const distanceKm = haversineKm(assetPoint, eventPoint);
       if (distanceKm > thresholds.monitorKm) continue;
       const proximity = distanceKm <= thresholds.closeKm ? 'close'
         : distanceKm <= thresholds.elevatedKm ? 'elevated' : 'monitor';
