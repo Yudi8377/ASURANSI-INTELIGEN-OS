@@ -55,9 +55,9 @@ app.post('/api/v1/auth/login', { config:{ rateLimit:{max:8,timeWindow:'1 minute'
     return reply.code(401).send({error:'INVALID_CREDENTIALS',message:'Email atau password salah.'});
   }
   if (requiresMandatoryMfa(user) && !user.mfa_enabled) {
-    const enrollmentToken=app.jwt.sign({userId:user.id,tenantId:user.tenant_id,email:user.email,purpose:'mfa_enrollment_required'},{expiresIn:'3m'});
+    const enrollmentToken=app.jwt.sign({userId:user.id,tenantId:user.tenant_id,email:user.email,purpose:'mfa_enrollment_required'},{expiresIn:'10m'});
     await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.required_enrollment_issued','user',$2,$3,'pending')",[user.tenant_id,user.id,request.id]);
-    return reply.code(202).send({mfaEnrollmentRequired:true,enrollmentToken,expiresIn:180});
+    return reply.code(202).send({mfaEnrollmentRequired:true,enrollmentToken,expiresIn:600});
   }
   if (user.mfa_enabled) {
     if (!user.mfa_secret_encrypted) {
@@ -177,12 +177,13 @@ app.post('/api/v1/auth/mfa/required/enroll/start', { config:{ rateLimit:{max:4,t
   if (!key) return reply.code(503).send({ error:'MFA_CONFIGURATION_ERROR', message:'Kunci enkripsi MFA belum dikonfigurasi.' });
   const secret = generateTotpSecret();
   const encrypted = encryptMfaSecret(secret, key);
-  await pool.query("UPDATE asuransi.users SET mfa_pending_secret_encrypted=$3 WHERE id=$1 AND tenant_id=$2 AND status='active' AND mfa_enabled=false", [user.id, user.tenant_id, encrypted]);
+  const staged = await pool.query("UPDATE asuransi.users SET mfa_pending_secret_encrypted=$3 WHERE id=$1 AND tenant_id=$2 AND status='active' AND mfa_enabled=false", [user.id, user.tenant_id, encrypted]);
+  if (staged.rowCount !== 1) return reply.code(409).send({ error:'MFA_ENROLLMENT_CONFLICT', message:'Status akun berubah. Silakan login ulang.' });
   const issuer = 'INSURANCE INTELIGENT OS';
   const label = encodeURIComponent(issuer + ':' + user.email);
   const otpauthUrl = 'otpauth://totp/' + label + '?secret=' + secret + '&issuer=' + encodeURIComponent(issuer) + '&algorithm=SHA1&digits=6&period=30';
   await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.required_enrollment_started','user',$2,$3,'pending')", [user.tenant_id, user.id, request.id]);
-  return { secret, otpauthUrl, issuer, account:user.email, algorithm:'SHA1', digits:6, periodSeconds:30, enrollmentTokenExpiresIn:180 };
+  return { secret, otpauthUrl, issuer, account:user.email, algorithm:'SHA1', digits:6, periodSeconds:30, enrollmentTokenExpiresIn:600 };
 });
 
 app.post('/api/v1/auth/mfa/required/enroll/confirm', { config:{ rateLimit:{max:6,timeWindow:'1 minute'} } }, async (request, reply) => {
