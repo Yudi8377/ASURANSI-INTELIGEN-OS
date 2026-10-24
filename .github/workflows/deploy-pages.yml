@@ -1,0 +1,49 @@
+name: Deploy dashboard to GitHub Pages (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_pages_deploy:
+        description: Type DEPLOY-PAGES after VITE_API_BASE_URL is configured for the production API
+        required: true
+        type: string
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: github-pages-production
+  cancel-in-progress: false
+jobs:
+  build-and-deploy:
+    if: ${{ inputs.confirm_pages_deploy == 'DEPLOY-PAGES' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Require production API URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$VITE_API_BASE_URL" || { echo "::error::Set VITE_API_BASE_URL as a repository variable to the production API URL ending in /api."; exit 1; }
+          case "$VITE_API_BASE_URL" in
+            https://*/api) ;;
+            *) echo "::error::VITE_API_BASE_URL must be HTTPS and end in /api."; exit 1;;
+          esac
+      - uses: actions/configure-pages@v5
+      - run: npm install
+      - name: Build production dashboard
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Deploy dashboard
+        id: deployment
+        uses: actions/deploy-pages@v4
