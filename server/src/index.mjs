@@ -14,7 +14,7 @@ import { createAuthGuard } from './auth-guard.mjs';
 import { registerClientOperations } from './clients.mjs';
 import { findLoginPrincipal } from './login-principal.mjs';
 import { encryptMfaSecret, decryptMfaSecret } from './mfa-crypto.mjs';
-import { generateTotpSecret, generateTotp, matchingTotpCounter } from './totp.mjs';
+import { generateTotpSecret, matchingTotpCounter } from './totp.mjs';
 
 const { Pool } = pg;
 const required = ['DATABASE_URL','AUTH_ACCESS_TOKEN_SECRET'];
@@ -72,7 +72,7 @@ async function issueAccessToken(user, request, reply) {
 }
 
 app.post('/api/v1/auth/mfa/verify', { config:{ rateLimit:{max:8,timeWindow:'1 minute'} } }, async (request, reply) => {
-  const input=z.object({challengeToken:z.string().min(20).max(4096),code:z.string().regex(/^\\d{6}$/)}).safeParse(request.body);
+  const input=z.object({challengeToken:z.string().min(20).max(4096),code:z.string().regex(/^\d{6}$/)}).safeParse(request.body);
   if(!input.success) return reply.code(400).send({error:'INVALID_INPUT',message:'Kode MFA tidak valid.'});
   let challenge;
   try { challenge=app.jwt.verify(input.data.challengeToken); } catch { return reply.code(401).send({error:'MFA_CHALLENGE_INVALID',message:'Tantangan MFA tidak valid atau telah kedaluwarsa.'}); }
@@ -117,7 +117,7 @@ app.post('/api/v1/auth/mfa/enroll/start',{preHandler:[auth],config:{rateLimit:{m
 });
 
 app.post('/api/v1/auth/mfa/enroll/confirm',{preHandler:[auth],config:{rateLimit:{max:8,timeWindow:'1 minute'}}},async(request,reply)=>{
-  const input=z.object({code:z.string().regex(/^\\d{6}$/)}).safeParse(request.body);
+  const input=z.object({code:z.string().regex(/^\d{6}$/)}).safeParse(request.body);
   if(!input.success) return reply.code(400).send({error:'INVALID_INPUT',message:'Kode MFA harus terdiri dari enam digit.'});
   const key=process.env.MFA_ENCRYPTION_KEY;
   if(!key) return reply.code(503).send({error:'MFA_CONFIGURATION_ERROR',message:'Kunci enkripsi MFA belum dikonfigurasi.'});
