@@ -101,3 +101,34 @@ test('findings history query is tenant-scoped and bounded',async()=>{
     assert.match(query.sql,/WHERE tenant_id=\$1/);
   } finally { await app.close(); }
 });
+
+
+test('research execution is denied without the research permission before any database write',async()=>{
+  const calls=[];
+  const pool={connect:async()=>{throw new Error('database must not be reached');},query:async(sql,params=[])=>{calls.push({sql,params});return {rows:[],rowCount:0};}};
+  const app=Fastify({logger:false});
+  const auth=async request=>{request.user={tenantId,userId,permissions:['intelligence:read']};};
+  const permit=permission=>async(request,reply)=>{if(!request.user?.permissions?.includes(permission)&&!request.user?.permissions?.includes('*'))return reply.code(403).send({error:'FORBIDDEN'});};
+  await registerIntelligencePersistence(app,{pool,auth,permit,researchRunner:fixtureResearch});
+  try {
+    const response=await app.inject({method:'POST',url:'/api/v1/intelligence/research/run'});
+    assert.equal(response.statusCode,403);
+    assert.equal(response.json().error,'FORBIDDEN');
+    assert.equal(calls.length,0);
+  } finally { await app.close(); }
+});
+
+test('research history rejects unauthenticated requests before querying tenant data',async()=>{
+  const calls=[];
+  const pool={query:async(sql,params=[])=>{calls.push({sql,params});return {rows:[],rowCount:0};},connect:async()=>{throw new Error('database must not be reached');}};
+  const app=Fastify({logger:false});
+  const auth=async(_request,reply)=>reply.code(401).send({error:'UNAUTHENTICATED'});
+  const permit=()=>async()=>{};
+  await registerIntelligencePersistence(app,{pool,auth,permit});
+  try {
+    const response=await app.inject({method:'GET',url:'/api/v1/intelligence/research/runs'});
+    assert.equal(response.statusCode,401);
+    assert.equal(response.json().error,'UNAUTHENTICATED');
+    assert.equal(calls.length,0);
+  } finally { await app.close(); }
+});
