@@ -40,10 +40,12 @@ export function matchAssetEventProximity(assets, events, options = {}) {
     elevatedKm: options.elevatedKm ?? 25,
     monitorKm: options.monitorKm ?? 100
   };
-  if (!(thresholds.closeKm > 0
+  if (!(Number.isFinite(thresholds.closeKm)
+    && Number.isFinite(thresholds.elevatedKm)
+    && Number.isFinite(thresholds.monitorKm)
+    && thresholds.closeKm > 0
     && thresholds.closeKm < thresholds.elevatedKm
-    && thresholds.elevatedKm < thresholds.monitorKm
-    && Number.isFinite(thresholds.monitorKm))) {
+    && thresholds.elevatedKm < thresholds.monitorKm)) {
     throw new Error('Distance thresholds must be finite, positive, and strictly increasing.');
   }
 
