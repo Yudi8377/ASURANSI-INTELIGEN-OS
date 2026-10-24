@@ -14,6 +14,12 @@ This change introduces an explicit agent registry and a safe, configurable publi
 
 The first four are connectors only after an operator configures approved source endpoints. No feed is enabled by default. The evidence verifier currently labels items `unverified`; it does not independently establish truth. The synthesizer is not an LLM agent yet.
 
+## Source-domain catalog
+
+The authenticated read-only endpoint `GET /api/v1/intelligence/sources` exposes the planning catalog under `intelligence:read`. It currently lists 16 domains: corporate ownership, financial health, geospatial hazards, earth observation, news/events, regulation/compliance, policy wording, claims/losses, engineering/safety, transport/supply chain, climate/weather, insurance/reinsurance/actuarial, litigation/integrity, macro/country risk, cyber/operational risk, and data quality/governance.
+
+Catalog entries are deliberately marked `planned` and `connected: false`. The catalog is not an API connection and does not imply a source is approved, accessible, licensed for reuse, or tested. Several entries are discovery portals rather than API endpoints. Internal and partner data entries are placeholders and must never be fetched as public URLs. Before a connector is enabled, confirm its actual endpoint, authentication, terms, permitted reuse, update frequency, data minimization, and test results. A provider-specific adapter is required when the source does not expose the supported public JSON format.
+
 ## Source configuration
 
 Set the Neon Function environment variables only after reviewing the source's terms, privacy implications, rate limits and data licence:
