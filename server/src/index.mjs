@@ -11,6 +11,7 @@ import { registerOperations } from './operations.mjs';
 import { registerScenarioOperations } from './scenarios.mjs';
 import { createAuthGuard } from './auth-guard.mjs';
 import { registerClientOperations } from './clients.mjs';
+import { findLoginPrincipal } from './login-principal.mjs';
 
 const { Pool } = pg;
 const required = ['DATABASE_URL','AUTH_ACCESS_TOKEN_SECRET'];
@@ -42,9 +43,7 @@ app.get('/api/health', async (_request, reply) => {
 app.post('/api/v1/auth/login', { config:{ rateLimit:{max:8,timeWindow:'1 minute'} } }, async (request, reply) => {
   const input=z.object({email:z.string().email().max(254),password:z.string().min(1).max(200)}).safeParse(request.body);
   if(!input.success) return reply.code(400).send({error:'INVALID_INPUT',message:'Email atau password tidak valid.'});
-  const result=await pool.query(`SELECT u.id,u.tenant_id,u.email,u.full_name,u.password_hash,u.status,COALESCE(jsonb_agg(DISTINCT perm.value) FILTER (WHERE perm.value IS NOT NULL),'[]'::jsonb) AS permissions
-    FROM asuransi.users u LEFT JOIN asuransi.user_roles ur ON ur.user_id=u.id LEFT JOIN asuransi.roles r ON r.id=ur.role_id LEFT JOIN LATERAL jsonb_array_elements_text(r.permissions) perm(value) ON true
-    WHERE lower(u.email)=lower($1) GROUP BY u.id LIMIT 2`,[input.data.email]);
+  const result=await findLoginPrincipal(pool,input.data.email);
   const user=result.rows.length===1?result.rows[0]:null;
   if(!user||user.status!=='active'||!user.password_hash||!(await argon2.verify(user.password_hash,input.data.password).catch(()=>false))) {
     await pool.query("INSERT INTO asuransi.audit_logs(action,resource_type,request_id,outcome,metadata) VALUES('auth.login.failed','user',$1,'denied',$2)",[request.id,JSON.stringify({emailDomain:input.data.email.split('@')[1]||''})]);
