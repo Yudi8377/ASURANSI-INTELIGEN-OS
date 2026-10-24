@@ -47,6 +47,13 @@ test('rejects invalid coordinates and invalid thresholds', () => {
   assert.throws(() => matchAssetEventProximity([], [{latitude:0,longitude:181}]), /Invalid events/);
   assert.throws(() => matchAssetEventProximity([], [], {closeKm:25,elevatedKm:5,monitorKm:100}), /thresholds/);
   assert.throws(() => matchAssetEventProximity({}, []), /must be arrays/);
+  assert.throws(() => matchAssetEventProximity([null], []), /Invalid assets/);
+});
+
+test('rejects inputs that exceed the comparison budget', () => {
+  const assets = Array.from({length:101}, () => ({latitude:0,longitude:0}));
+  const events = Array.from({length:100}, () => ({latitude:0,longitude:0}));
+  assert.throws(() => matchAssetEventProximity(assets, events), /at most 10000/);
 });
 
 test('empty input returns no matches', () => {
