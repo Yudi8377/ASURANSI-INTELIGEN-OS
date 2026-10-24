@@ -1,14 +1,20 @@
 import { z } from 'zod';
 
 const clientSchema = z.object({
-  client_type:z.enum(['individual','company']).default('individual'),
+  client_type:z.enum(['individual','company']),
   full_name:z.string().trim().min(2).max(200),
   legal_name:z.string().max(200).optional().nullable(),
   email:z.string().email().max(254).optional().nullable(),
   phone:z.string().max(40).optional().nullable(),
-  status:z.enum(['prospect','active','inactive','needs_follow_up','pending_verification']).default('prospect'),
+  status:z.enum(['prospect','active','inactive','needs_follow_up','pending_verification']),
   owner_user_id:z.string().uuid().optional().nullable(),
   notes:z.string().max(4000).optional().nullable(),
+  consent_status:z.enum(['pending','granted','withdrawn'])
+});
+
+const clientCreateSchema = clientSchema.extend({
+  client_type:z.enum(['individual','company']).default('individual'),
+  status:z.enum(['prospect','active','inactive','needs_follow_up','pending_verification']).default('prospect'),
   consent_status:z.enum(['pending','granted','withdrawn']).default('pending')
 });
 
@@ -33,7 +39,7 @@ export async function registerClientOperations(app, { pool, auth, permit }) {
     return {data:result.rows,limit:q.limit,offset:q.offset};
   });
   app.post('/api/v1/clients',{preHandler:[auth,permit('clients:create')]},async(request,reply)=>{
-    const parsed=clientSchema.safeParse(request.body);
+    const parsed=clientCreateSchema.safeParse(request.body);
     if(!parsed.success)return reply.code(400).send({error:'INVALID_INPUT',details:parsed.error.flatten()});
     if(parsed.data.owner_user_id&&!(await ownerBelongsToTenant(pool,parsed.data.owner_user_id,request.user.tenantId)) )return reply.code(400).send({error:'INVALID_OWNER_USER',message:'Pemilik data harus merupakan pengguna dalam organisasi yang sama.'});
     const client=await pool.connect();
