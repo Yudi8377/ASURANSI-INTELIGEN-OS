@@ -20,6 +20,15 @@ The authenticated read-only endpoint `GET /api/v1/intelligence/sources` exposes 
 
 Catalog entries are deliberately marked `planned` and `connected: false`. The catalog is not an API connection and does not imply a source is approved, accessible, licensed for reuse, or tested. Several entries are discovery portals rather than API endpoints. Internal and partner data entries are placeholders and must never be fetched as public URLs. Before a connector is enabled, confirm its actual endpoint, authentication, terms, permitted reuse, update frequency, data minimization, and test results. A provider-specific adapter is required when the source does not expose the supported public JSON format.
 
+## OJK regulatory source readiness
+
+The source catalog now includes the official OJK regulation search portal and the insurance-sector regulation listing:
+
+- General regulation search: https://www.ojk.go.id/id/regulasi/_layouts/15/listform.aspx?PageType=4
+- Insurance-sector regulation listing: https://www.ojk.go.id/id/kanal/iknb/regulasi/asuransi/peraturan-ojk/default.aspx
+
+These are official web portals for discovery, not verified JSON API endpoints. The catalog intentionally marks them `planned` and `connected: false`. No HTML scraping or source activation is introduced by this change. Before building an automated connector, confirm whether OJK provides a documented machine-readable endpoint or download interface, inspect its current terms and response format, and test it in validation. If only HTML pages are available, implement a dedicated, narrowly scoped adapter with fixture tests and clear source citations rather than passing the page to the generic JSON ingestion pipeline. Every regulation record should ultimately retain its official URL, regulation identifier/type, publication date, effective/status metadata when available, retrieval timestamp, and a clear distinction between publication date and legal effective date.
+
 ## Provider-specific public hazard adapters
 
 The research pipeline includes explicit normalization adapters for two public earthquake-feed formats:
