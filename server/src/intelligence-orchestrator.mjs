@@ -46,7 +46,10 @@ function normalizeItem(item, source, retrievedAt) {
     publishedAt,
     sourceId: source.id,
     sourceTitle: source.title,
+    sourceUrl: source.url,
     publisher: source.publisher,
+    attribution: cleanText(source.attribution || source.publisher, 300),
+    providerRecordId: typeof (item?.id ?? item?.eventId ?? item?.code) === 'string' || typeof (item?.id ?? item?.eventId ?? item?.code) === 'number' ? String(item.id ?? item.eventId ?? item.code).slice(0, 200) : null,
     agentId: source.agentId,
     retrievedAt,
     verificationStatus: 'unverified',
@@ -95,9 +98,9 @@ export async function runIntelligenceResearch({ env = process.env, fetchImpl = f
       const items = normalizeProviderPayload(adapter, payload).slice(0, MAX_ITEMS_PER_SOURCE);
       const normalized = items.map(item => normalizeItem(item, source, retrievedAt)).filter(Boolean);
       findings.push(...normalized);
-      return { sourceId:source.id, title:source.title, publisher:source.publisher, agentId:source.agentId, status:'success', itemCount:normalized.length, retrievedAt };
+      return { sourceId:source.id, title:source.title, sourceUrl:source.url, publisher:source.publisher, attribution:cleanText(source.attribution || source.publisher, 300), agentId:source.agentId, status:'success', itemCount:normalized.length, retrievedAt };
     } catch (error) {
-      return { sourceId:source.id, title:source.title, publisher:source.publisher, agentId:source.agentId, status:'unavailable', itemCount:0, retrievedAt, error: error instanceof Error ? error.message : 'Unknown source error' };
+      return { sourceId:source.id, title:source.title, sourceUrl:source.url, publisher:source.publisher, attribution:cleanText(source.attribution || source.publisher, 300), agentId:source.agentId, status:'unavailable', itemCount:0, retrievedAt, error: error instanceof Error ? error.message : 'Unknown source error' };
     }
   }));
   return {
