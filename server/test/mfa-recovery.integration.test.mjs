@@ -41,6 +41,12 @@ async function makeApp({ challengePayload = challenge, tenantStatus = 'active', 
       if (sql.includes('INSERT INTO asuransi.audit_logs')) return { rows: [], rowCount: 1 };
       throw new Error('Unexpected SQL in test: ' + sql);
     },
+    async connect() {
+      return {
+        query: (sql, params = []) => pool.query(sql, params),
+        release() {},
+      };
+    },
   };
   const app = Fastify({ logger: false });
   app.decorate('jwt', {
