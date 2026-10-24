@@ -55,8 +55,8 @@ export function normalizeProviderPayload(adapter, payload) {
     const events = payload?.Infogempa?.gempa;
     if (!Array.isArray(events)) throw new Error('BMKG earthquake payload has no Infogempa.gempa array.');
     return events.map(event => {
-      const latitude = Number(String(event?.Lintang ?? '').replace(',', '.').replace(/[^0-9.\-]/g, ''));
-      const longitude = Number(String(event?.Bujur ?? '').replace(',', '.').replace(/[^0-9.\-]/g, ''));
+      const latitude = parseBmkgCoordinate(event?.Lintang, ['LS']);
+      const longitude = parseBmkgCoordinate(event?.Bujur, ['BB']);
       const magnitude = Number(String(event?.Magnitude ?? '').replace(',', '.'));
       const title = [cleanString(event?.Wilayah) || 'Gempa bumi', cleanString(event?.Tanggal), cleanString(event?.Jam)].filter(Boolean).join(' — ');
       const summary = [event?.Magnitude ? 'Magnitude ' + cleanString(String(event.Magnitude)) : null, cleanString(event?.Kedalaman) || null, cleanString(event?.Potensi) || null].filter(Boolean).join(' · ');
