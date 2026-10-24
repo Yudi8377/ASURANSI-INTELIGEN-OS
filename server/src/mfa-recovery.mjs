@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import argon2 from 'argon2';
 import { z } from 'zod';
 import { decryptMfaSecret } from './mfa-crypto.mjs';
@@ -46,7 +46,7 @@ export async function registerMfaRecoveryRoutes(app, { pool, auth }) {
   });
 
   app.post('/api/v1/auth/mfa/recovery/rotate', { preHandler: [auth], config: { rateLimit: { max: 3, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const input = z.object({ code: z.string().regex(/^\\d{6}$/) }).safeParse(request.body);
+    const input = z.object({ code: z.string().regex(/^\d{6}$/) }).safeParse(request.body);
     if (!input.success) return reply.code(400).send({ error: 'INVALID_INPUT', message: 'Kode autentikator harus enam digit.' });
     const result = await pool.query("SELECT id,email,mfa_secret_encrypted,mfa_last_counter FROM asuransi.users WHERE id=$1 AND tenant_id=$2 AND status='active' AND mfa_enabled=true", [request.user.userId, request.user.tenantId]);
     const user = result.rows[0];
@@ -70,7 +70,7 @@ export async function registerMfaRecoveryRoutes(app, { pool, auth }) {
         const hash = await argon2.hash(code, { type: argon2.argon2id });
         await client.query('INSERT INTO asuransi.user_mfa_recovery_codes(tenant_id,user_id,code_hash) VALUES($1,$2,$3)', [request.user.tenantId, user.id, hash]);
       }
-      await client.query('INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,\'auth.mfa.recovery_codes_rotated\',\'user\',$2,$3,\'success\')', [request.user.tenantId, user.id, request.id]);
+      await client.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.recovery_codes_rotated','user',$2,$3,'success')", [request.user.tenantId, user.id, request.id]);
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
