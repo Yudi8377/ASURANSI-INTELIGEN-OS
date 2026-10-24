@@ -1,3 +1,5 @@
+import { listIntelligenceAgents } from './intelligence-agents.mjs';
+import { runIntelligenceResearch } from './intelligence-orchestrator.mjs';
 import { z } from 'zod';
 
 export async function registerOperations(app, { pool, auth, permit }) {
@@ -32,4 +34,22 @@ export async function registerOperations(app, { pool, auth, permit }) {
       'SELECT source_key,title,publisher,source_url,jurisdiction,source_type,published_at,checked_at,version_label,content_sha256,status,created_at,updated_at FROM asuransi.knowledge_sources ORDER BY jurisdiction, publisher, title LIMIT 250');
     return {data:result.rows};
   });
+  app.get('/api/v1/intelligence/agents', { preHandler:[auth,permit('intelligence:read')] }, async () => {
+    return { data:listIntelligenceAgents(), mode:'foundation', notice:'Agen connector belum aktif sebelum sumber disetujui dan dikonfigurasi. Registry ini bukan bukti bahwa semua agen sudah berjalan.' };
+  });
+
+  app.post('/api/v1/intelligence/research', { preHandler:[auth,permit('intelligence:research')] }, async (request, reply) => {
+    try {
+      const result = await runIntelligenceResearch();
+      await pool.query(
+        'INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,request_id,outcome,metadata) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)',
+        [request.user.tenantId,request.user.userId,'intelligence.research','public_source_research',request.id,'completed',JSON.stringify({configuredSources:result.summary.configuredSources,successfulSources:result.summary.successfulSources,findings:result.summary.findings})]
+      );
+      return { data:result, notice:'Temuan bersifat unverified dan belum menjadi rekomendasi underwriting, keputusan klaim, atau keputusan komersial.' };
+    } catch (error) {
+      request.log.error({err:error,requestId:request.id},'intelligence research failed');
+      return reply.code(503).send({error:'INTELLIGENCE_UNAVAILABLE',message:'Konfigurasi sumber intelijen belum valid atau layanan belum tersedia.',requestId:request.id});
+    }
+  });
+
 }
