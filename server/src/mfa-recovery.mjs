@@ -4,14 +4,14 @@ import { z } from 'zod';
 import { decryptMfaSecret } from './mfa-crypto.mjs';
 import { matchingTotpCounter } from './totp.mjs';
 
-function generateRecoveryCode() {
+export function generateRecoveryCode() {
   const raw = randomBytes(9).toString('hex').toUpperCase();
   return raw.match(/.{1,6}/g).join('-');
 }
 
 export async function registerMfaRecoveryRoutes(app, { pool, auth }) {
   app.post('/api/v1/auth/mfa/recovery/verify', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const input = z.object({ challengeToken: z.string().min(20).max(4096), code: z.string().regex(/^[A-F0-9]{6}(?:-[A-F0-9]{6})$/i) }).safeParse(request.body);
+    const input = z.object({ challengeToken: z.string().min(20).max(4096), code: z.string().regex(/^[A-F0-9]{6}(?:-[A-F0-9]{6}){2}$/i) }).safeParse(request.body);
     if (!input.success) return reply.code(400).send({ error: 'INVALID_INPUT', message: 'Kode pemulihan tidak valid.' });
     let challenge;
     try { challenge = app.jwt.verify(input.data.challengeToken); } catch { return reply.code(401).send({ error: 'MFA_CHALLENGE_INVALID', message: 'Tantangan MFA tidak valid atau telah kedaluwarsa.' }); }
