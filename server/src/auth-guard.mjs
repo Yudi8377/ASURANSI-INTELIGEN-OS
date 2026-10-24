@@ -6,7 +6,12 @@ export function createAuthGuard({ pool }) {
   return async function auth(request, reply) {
     try {
       await request.jwtVerify();
-      if (!request.user?.userId || !request.user?.tenantId || !Array.isArray(request.user?.permissions)) {
+      // MFA challenge tokens are only for the MFA verification endpoints. Reject
+      // them here even if a future issuer accidentally adds access-token claims.
+      if (request.user?.purpose === 'mfa_challenge' ||
+          !request.user?.userId ||
+          !request.user?.tenantId ||
+          !Array.isArray(request.user?.permissions)) {
         throw new Error('Invalid token claims');
       }
     } catch {
