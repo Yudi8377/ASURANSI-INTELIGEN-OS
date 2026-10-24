@@ -30,6 +30,7 @@ const SOURCE_DOMAINS = [
     ['GDELT Project','International','https://www.gdeltproject.org/','global-news-events','api-and-methodology-review']
   ]},
   { id:'regulation-compliance', name:'Regulasi, kepatuhan & perizinan', priority:'P1', sources:[
+    ['OJK - pencarian regulasi resmi','Indonesia','https://www.ojk.go.id/id/regulasi/_layouts/15/listform.aspx?PageType=4','regulation-catalog-and-metadata','official-html-portal-api-not-verified'],
     ['OJK - regulasi asuransi','Indonesia','https://www.ojk.go.id/id/kanal/iknb/regulasi/asuransi/peraturan-ojk/default.aspx','insurance-regulations','official-publications'],
     ['Peraturan.go.id','Indonesia','https://peraturan.go.id/','legislation','official-publications'],
     ['JDIHN','Indonesia','https://jdihn.go.id/','legal-documents','portal-and-terms-review'],
