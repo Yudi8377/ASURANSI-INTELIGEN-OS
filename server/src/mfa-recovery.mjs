@@ -9,6 +9,8 @@ export function generateRecoveryCode() {
   return raw.match(/.{1,6}/g).join('-');
 }
 
+export const totpCodeSchema = z.string().regex(/^\d{6}$/);
+
 export async function registerMfaRecoveryRoutes(app, { pool, auth }) {
   app.post('/api/v1/auth/mfa/recovery/verify', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const input = z.object({ challengeToken: z.string().min(20).max(4096), code: z.string().regex(/^[A-F0-9]{6}(?:-[A-F0-9]{6}){2}$/i) }).safeParse(request.body);
@@ -46,7 +48,7 @@ export async function registerMfaRecoveryRoutes(app, { pool, auth }) {
   });
 
   app.post('/api/v1/auth/mfa/recovery/rotate', { preHandler: [auth], config: { rateLimit: { max: 3, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const input = z.object({ code: z.string().regex(/^\d{6}$/) }).safeParse(request.body);
+    const input = z.object({ code: totpCodeSchema }).safeParse(request.body);
     if (!input.success) return reply.code(400).send({ error: 'INVALID_INPUT', message: 'Kode autentikator harus enam digit.' });
     const result = await pool.query("SELECT id,email,mfa_secret_encrypted,mfa_last_counter FROM asuransi.users WHERE id=$1 AND tenant_id=$2 AND status='active' AND mfa_enabled=true", [request.user.userId, request.user.tenantId]);
     const user = result.rows[0];
