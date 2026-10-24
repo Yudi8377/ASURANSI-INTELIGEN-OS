@@ -5,7 +5,7 @@ function toIsoFromEpoch(value) {
 
 function parseBmkgCoordinate(value, negativeHemisphere) {
   const text = String(value ?? '').trim().toUpperCase().replace(',', '.');
-  const match = text.match(/-?\\d+(?:\\.\\d+)?/);
+  const match = text.match(/-?\d+(?:\.\d+)?/);
   if (!match) return null;
   const numeric = Number(match[0]);
   if (!Number.isFinite(numeric)) return null;
