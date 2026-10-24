@@ -83,3 +83,22 @@ test('inactive tenant cannot use an otherwise valid access token', async () => {
   assert.equal(reply.statusCode, 403);
   assert.equal(reply.payload.error, 'TENANT_SUSPENDED');
 });
+
+test('privileged MFA enrollment challenge cannot authorize protected routes even with wildcard claims', async () => {
+  let queries = 0;
+  const auth = createAuthGuard({ pool: { async query() { queries += 1; return { rowCount: 1, rows: [{ user_status: 'active', tenant_status: 'active' }] }; } } });
+  const request = makeRequest({
+    userId: 'admin-1',
+    tenantId: 'tenant-1',
+    email: 'admin@example.test',
+    purpose: 'mfa_enrollment_required',
+    permissions: ['*']
+  });
+  const reply = replyRecorder();
+
+  await auth(request, reply);
+
+  assert.equal(reply.statusCode, 401);
+  assert.equal(reply.payload.error, 'UNAUTHORIZED');
+  assert.equal(queries, 0);
+});

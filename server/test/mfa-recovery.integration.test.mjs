@@ -19,6 +19,7 @@ async function makeApp({ challengePayload = challenge, tenantStatus = 'active', 
   const pool = {
     async query(sql, params = []) {
       queries.push({ sql, params });
+      if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(sql)) return { rows: [], rowCount: 0 };
       if (sql.includes('FROM asuransi.users u JOIN asuransi.tenants')) {
         if (params[1] !== 'user-1' || params[2] !== 'tenant-1' || params[0] !== 'member@example.test') return { rows: [], rowCount: 0 };
         return { rows: [{
@@ -40,6 +41,12 @@ async function makeApp({ challengePayload = challenge, tenantStatus = 'active', 
       if (sql.includes('UPDATE asuransi.users SET last_login_at')) return { rows: [], rowCount: 1 };
       if (sql.includes('INSERT INTO asuransi.audit_logs')) return { rows: [], rowCount: 1 };
       throw new Error('Unexpected SQL in test: ' + sql);
+    },
+    async connect() {
+      return {
+        query: (sql, params = []) => pool.query(sql, params),
+        release() {},
+      };
     },
   };
   const app = Fastify({ logger: false });

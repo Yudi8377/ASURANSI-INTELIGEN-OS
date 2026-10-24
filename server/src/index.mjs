@@ -16,6 +16,8 @@ import { findLoginPrincipal } from './login-principal.mjs';
 import { encryptMfaSecret, decryptMfaSecret } from './mfa-crypto.mjs';
 import { generateTotpSecret, matchingTotpCounter } from './totp.mjs';
 import { registerMfaRecoveryRoutes } from './mfa-recovery.mjs';
+import { requiresMandatoryMfa } from './mfa-policy.mjs';
+import { registerRequiredMfaEnrollmentRoutes } from './mfa-required-enrollment.mjs';
 
 const { Pool } = pg;
 const required = ['DATABASE_URL','AUTH_ACCESS_TOKEN_SECRET'];
@@ -49,9 +51,14 @@ app.post('/api/v1/auth/login', { config:{ rateLimit:{max:8,timeWindow:'1 minute'
   if(!input.success) return reply.code(400).send({error:'INVALID_INPUT',message:'Email atau password tidak valid.'});
   const result=await findLoginPrincipal(pool,input.data.email);
   const user=result.rows.length===1?result.rows[0]:null;
-  if(!user||user.status!=='active'||!user.password_hash||!(await argon2.verify(user.password_hash,input.data.password).catch(()=>false))) {
+  if(!user||user.status!=='active'||user.tenant_status!=='active'||!user.password_hash||!(await argon2.verify(user.password_hash,input.data.password).catch(()=>false))) {
     await pool.query("INSERT INTO asuransi.audit_logs(action,resource_type,request_id,outcome,metadata) VALUES('auth.login.failed','user',$1,'denied',$2)",[request.id,JSON.stringify({emailDomain:input.data.email.split('@')[1]||''})]);
     return reply.code(401).send({error:'INVALID_CREDENTIALS',message:'Email atau password salah.'});
+  }
+  if (requiresMandatoryMfa(user) && !user.mfa_enabled) {
+    const enrollmentToken=app.jwt.sign({userId:user.id,tenantId:user.tenant_id,email:user.email,purpose:'mfa_enrollment_required'},{expiresIn:'10m'});
+    await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.required_enrollment_issued','user',$2,$3,'pending')",[user.tenant_id,user.id,request.id]);
+    return reply.code(202).send({mfaEnrollmentRequired:true,enrollmentToken,expiresIn:600});
   }
   if (user.mfa_enabled) {
     if (!user.mfa_secret_encrypted) {
@@ -80,7 +87,7 @@ app.post('/api/v1/auth/mfa/verify', { config:{ rateLimit:{max:8,timeWindow:'1 mi
   if(challenge.purpose!=='mfa_challenge'||!challenge.userId||!challenge.tenantId||!challenge.email) return reply.code(401).send({error:'MFA_CHALLENGE_INVALID',message:'Tantangan MFA tidak valid.'});
   const result=await findLoginPrincipal(pool,challenge.email);
   const user=result.rows.length===1?result.rows[0]:null;
-  if(!user||user.id!==challenge.userId||user.tenant_id!==challenge.tenantId||user.status!=='active'||!user.mfa_enabled||!user.mfa_secret_encrypted) {
+  if(!user||user.id!==challenge.userId||user.tenant_id!==challenge.tenantId||user.status!=='active'||user.tenant_status!=='active'||!user.mfa_enabled||!user.mfa_secret_encrypted) {
     return reply.code(401).send({error:'MFA_CHALLENGE_INVALID',message:'Tantangan MFA tidak valid.'});
   }
   let secret;
@@ -140,6 +147,8 @@ app.post('/api/v1/auth/mfa/enroll/confirm',{preHandler:[auth],config:{rateLimit:
   await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.enrollment_completed','user',$2,$3,'success')",[request.user.tenantId,user.id,request.id]);
   return {mfaEnabled:true, message:'MFA berhasil diaktifkan. Login berikutnya akan meminta kode autentikator.'};
 });
+await registerRequiredMfaEnrollmentRoutes(app, { pool });
+
 app.get('/api/v1/me',{preHandler:[auth]},async request=>({user:{userId:request.user.userId,tenantId:request.user.tenantId,email:request.user.email,permissions:request.user.permissions}}));
 await registerClientOperations(app, { pool, auth, permit });
 await registerOperations(app, { pool, auth, permit });

@@ -24,5 +24,5 @@ try{
  await client.query('INSERT INTO asuransi.user_roles(user_id,role_id) VALUES($1,$2)',[user.rows[0].id,role.rows[0].id]);
  await client.query('INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,$3,$4,$5,$6::jsonb)',[tenantId,user.rows[0].id,'bootstrap.admin.created','user',user.rows[0].id,JSON.stringify({role:'system-admin',method:'one-time-script'})]);
  await client.query('COMMIT');
- process.stdout.write('Bootstrap admin created. Remove ADMIN_PASSWORD from the environment immediately. MFA is not implemented in this initial server; do not expose the API publicly until MFA and remaining production controls are complete.\n');
+ process.stdout.write('Bootstrap admin created. Remove ADMIN_PASSWORD from the environment immediately. The privileged account must complete MFA enrollment before receiving a normal access token; keep the API private until MFA_ENCRYPTION_KEY and all production controls are configured and validated.\n');
 }catch(error){await client.query('ROLLBACK');throw error}finally{client.release();await pool.end()}
