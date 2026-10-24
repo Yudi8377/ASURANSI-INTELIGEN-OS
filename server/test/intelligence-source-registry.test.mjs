@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { listIntelligenceSourceDomains, getIntelligenceSourceCatalogSummary } from '../src/intelligence-source-registry.mjs';
 
-test('source catalog covers 16 insurance intelligence domains', () => {
+test('source catalog covers 17 insurance intelligence domains', () => {
   const domains = listIntelligenceSourceDomains();
   const summary = getIntelligenceSourceCatalogSummary();
-  assert.equal(domains.length, 16);
-  assert.equal(summary.domainCount, 16);
+  assert.equal(domains.length, 17);
+  assert.equal(summary.domainCount, 17);
   assert.ok(summary.sourceCount >= 40);
   assert.equal(summary.connectedSourceCount, 0);
 });
