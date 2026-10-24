@@ -41,7 +41,7 @@ test('persistent research endpoint stores a run and audit entry under the authen
     const insert=calls.find(call=>call.sql.includes('INSERT INTO asuransi.intelligence_research_runs'));
     assert.equal(insert.params[0],tenantId);
     assert.equal(insert.params[1],userId);
-    assert.ok(calls.some(call=>call.sql.includes('intelligence.research')));
+    assert.ok(calls.some(call=>call.params.includes('intelligence.research')));
     assert.ok(calls.some(call=>call.sql==='COMMIT'));
   } finally { await app.close(); }
 });
