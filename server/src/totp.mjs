@@ -40,7 +40,7 @@ export function generateTotp(secret, now = Date.now()) {
 }
 
 export function matchingTotpCounter(secret, code, { now = Date.now(), window = 1, afterCounter = -1 } = {}) {
-  if (typeof code !== 'string' || !/^\\d{6}$/.test(code)) return null;
+  if (typeof code !== 'string' || !/^\d{6}$/.test(code)) return null;
   if (!Number.isFinite(now) || now < 0 || !Number.isInteger(window) || window < 0 || window > 1) return null;
   if (!Number.isSafeInteger(afterCounter) || afterCounter < -1) return null;
   const current = Math.floor(now / STEP_MS);
