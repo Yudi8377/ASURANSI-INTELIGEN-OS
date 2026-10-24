@@ -10,7 +10,7 @@ Default proximity bands are:
 - `monitor`: over 25 km and up to and including 100 km
 - farther events are not returned
 
-Thresholds can be supplied by the caller and must be strictly increasing. Output is sorted nearest-first. Coordinates outside latitude/longitude bounds are rejected rather than silently interpreted.
+Thresholds can be supplied by the caller and must be strictly increasing. Output is sorted nearest-first. Coordinates outside latitude/longitude bounds are rejected rather than silently interpreted. To bound CPU and memory usage, each call allows at most 10,000 asset-event comparisons; larger workloads must be split into authorized batches.
 
 ## Safety and limitations
 
@@ -20,4 +20,4 @@ Asset/event data must come from an authorized source and be processed under tena
 
 ## Validation
 
-Fixture-based tests cover provenance fields, distance ordering, bands, invalid coordinates, date-line wrap, and empty input. These tests do not establish live provider connectivity or validate a catastrophe model.
+Fixture-based tests cover provenance fields, distance ordering, bands, invalid coordinates, date-line wrap, input bounds, and empty input. These tests do not establish live provider connectivity or validate a catastrophe model.
