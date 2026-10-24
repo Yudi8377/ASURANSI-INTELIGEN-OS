@@ -27,11 +27,14 @@ test('unknown provider adapter fails closed', () => {
 });
 
 test('research pipeline preserves geospatial event fields and provenance', async () => {
-  const source = {id:'usgs-test',title:'USGS earthquakes',publisher:'USGS',agentId:'geospatial-risk',adapter:'usgs-earthquake-geojson',url:'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',enabled:true};
+  const source = {id:'usgs-test',title:'USGS earthquakes',publisher:'USGS',attribution:'Data courtesy of USGS',agentId:'geospatial-risk',adapter:'usgs-earthquake-geojson',url:'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',enabled:true};
   const env = {INTELLIGENCE_SOURCES_JSON:JSON.stringify([source]),INTELLIGENCE_ALLOWED_HOSTS:'earthquake.usgs.gov'};
   const result = await runIntelligenceResearch({env,fetchImpl:async()=>({ok:true,status:200,headers:{get:()=> 'application/geo+json'},json:async()=>({features:[{properties:{title:'M 4.2 - Java Sea',url:'https://earthquake.usgs.gov/event/1',time:1792828800000,mag:4.2,place:'Java Sea'},geometry:{coordinates:[110.5,-6.2,35]}}]})}),now:()=>new Date('2026-10-24T00:01:00.000Z')});
   assert.equal(result.summary.findings,1);
   assert.equal(result.findings[0].eventType,'earthquake');
   assert.equal(result.findings[0].latitude,-6.2);
   assert.equal(result.findings[0].verificationStatus,'unverified');
+  assert.equal(result.findings[0].sourceUrl,source.url);
+  assert.equal(result.findings[0].attribution,'Data courtesy of USGS');
+  assert.equal(result.sources[0].attribution,'Data courtesy of USGS');
 });
