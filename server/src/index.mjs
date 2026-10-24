@@ -13,6 +13,8 @@ import { registerIntelligencePersistence } from './intelligence-persistence.mjs'
 import { createAuthGuard } from './auth-guard.mjs';
 import { registerClientOperations } from './clients.mjs';
 import { findLoginPrincipal } from './login-principal.mjs';
+import { encryptMfaSecret, decryptMfaSecret } from './mfa-crypto.mjs';
+import { generateTotpSecret, generateTotp, matchingTotpCounter } from './totp.mjs';
 
 const { Pool } = pg;
 const required = ['DATABASE_URL','AUTH_ACCESS_TOKEN_SECRET'];
@@ -50,10 +52,92 @@ app.post('/api/v1/auth/login', { config:{ rateLimit:{max:8,timeWindow:'1 minute'
     await pool.query("INSERT INTO asuransi.audit_logs(action,resource_type,request_id,outcome,metadata) VALUES('auth.login.failed','user',$1,'denied',$2)",[request.id,JSON.stringify({emailDomain:input.data.email.split('@')[1]||''})]);
     return reply.code(401).send({error:'INVALID_CREDENTIALS',message:'Email atau password salah.'});
   }
+  if (user.mfa_enabled) {
+    if (!user.mfa_secret_encrypted) {
+      request.log.error({ userId:user.id }, 'MFA enabled but encrypted secret is missing');
+      return reply.code(503).send({error:'MFA_CONFIGURATION_ERROR',message:'Konfigurasi MFA akun belum lengkap. Hubungi administrator.'});
+    }
+    const challengeToken=app.jwt.sign({userId:user.id,tenantId:user.tenant_id,email:user.email,purpose:'mfa_challenge'},{expiresIn:'3m'});
+    await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.challenge_issued','user',$2,$3,'pending')",[user.tenant_id,user.id,request.id]);
+    return reply.code(202).send({mfaRequired:true,challengeToken,expiresIn:180});
+  }
+  return issueAccessToken(user, request, reply);
+});
+
+async function issueAccessToken(user, request, reply) {
   const token=app.jwt.sign({userId:user.id,tenantId:user.tenant_id,email:user.email,permissions:user.permissions});
   await pool.query('UPDATE asuransi.users SET last_login_at=now() WHERE id=$1',[user.id]);
   await pool.query('INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id) VALUES($1,$2,$3,$4,$5,$6)',[user.tenant_id,user.id,'auth.login','user',user.id,request.id]);
   return {accessToken:token,tokenType:'Bearer',expiresIn:600,user:{id:user.id,email:user.email,fullName:user.full_name,tenantId:user.tenant_id,permissions:user.permissions}};
+}
+
+app.post('/api/v1/auth/mfa/verify', { config:{ rateLimit:{max:8,timeWindow:'1 minute'} } }, async (request, reply) => {
+  const input=z.object({challengeToken:z.string().min(20).max(4096),code:z.string().regex(/^\\d{6}$/)}).safeParse(request.body);
+  if(!input.success) return reply.code(400).send({error:'INVALID_INPUT',message:'Kode MFA tidak valid.'});
+  let challenge;
+  try { challenge=app.jwt.verify(input.data.challengeToken); } catch { return reply.code(401).send({error:'MFA_CHALLENGE_INVALID',message:'Tantangan MFA tidak valid atau telah kedaluwarsa.'}); }
+  if(challenge.purpose!=='mfa_challenge'||!challenge.userId||!challenge.tenantId||!challenge.email) return reply.code(401).send({error:'MFA_CHALLENGE_INVALID',message:'Tantangan MFA tidak valid.'});
+  const result=await findLoginPrincipal(pool,challenge.email);
+  const user=result.rows.length===1?result.rows[0]:null;
+  if(!user||user.id!==challenge.userId||user.tenant_id!==challenge.tenantId||user.status!=='active'||!user.mfa_enabled||!user.mfa_secret_encrypted) {
+    return reply.code(401).send({error:'MFA_CHALLENGE_INVALID',message:'Tantangan MFA tidak valid.'});
+  }
+  let secret;
+  try { secret=decryptMfaSecret(user.mfa_secret_encrypted); } catch (error) {
+    request.log.error({err:error,userId:user.id},'MFA secret decryption failed');
+    return reply.code(503).send({error:'MFA_CONFIGURATION_ERROR',message:'Konfigurasi MFA tidak tersedia.'});
+  }
+  const previousCounter=user.mfa_last_counter===null? -1 : Number(user.mfa_last_counter);
+  const counter=matchingTotpCounter(secret,input.data.code,{afterCounter:previousCounter});
+  if(counter===null) {
+    await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.challenge_failed','user',$2,$3,'denied')",[user.tenant_id,user.id,request.id]);
+    return reply.code(401).send({error:'MFA_CODE_INVALID',message:'Kode MFA salah, kedaluwarsa, atau sudah digunakan.'});
+  }
+  const updated=await pool.query('UPDATE asuransi.users SET mfa_last_counter=$3 WHERE id=$1 AND tenant_id=$2 AND mfa_last_counter IS NOT DISTINCT FROM $4 AND mfa_enabled=true',[user.id,user.tenant_id,counter,user.mfa_last_counter]);
+  if(updated.rowCount!==1) return reply.code(401).send({error:'MFA_CODE_REPLAYED',message:'Kode MFA sudah digunakan. Masukkan kode terbaru.'});
+  await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.challenge_succeeded','user',$2,$3,'success')",[user.tenant_id,user.id,request.id]);
+  return issueAccessToken(user,request,reply);
+});
+
+app.post('/api/v1/auth/mfa/enroll/start',{preHandler:[auth],config:{rateLimit:{max:5,timeWindow:'1 minute'}}},async(request,reply)=>{
+  const key=process.env.MFA_ENCRYPTION_KEY;
+  if(!key) return reply.code(503).send({error:'MFA_CONFIGURATION_ERROR',message:'Kunci enkripsi MFA belum dikonfigurasi.'});
+  const result=await pool.query('SELECT id,email,mfa_enabled FROM asuransi.users WHERE id=$1 AND tenant_id=$2 AND status=\'active\'',[request.user.userId,request.user.tenantId]);
+  const user=result.rows[0];
+  if(!user) return reply.code(401).send({error:'UNAUTHORIZED',message:'Akun tidak aktif.'});
+  if(user.mfa_enabled) return reply.code(409).send({error:'MFA_ALREADY_ENABLED',message:'MFA sudah aktif pada akun ini.'});
+  const secret=generateTotpSecret();
+  const encrypted=encryptMfaSecret(secret,key);
+  await pool.query('UPDATE asuransi.users SET mfa_pending_secret_encrypted=$3 WHERE id=$1 AND tenant_id=$2',[user.id,request.user.tenantId,encrypted]);
+  const issuer='INSURANCE INTELIGENT OS';
+  const label=encodeURIComponent(issuer+':'+user.email);
+  const otpauthUrl='otpauth://totp/'+label+'?secret='+secret+'&issuer='+encodeURIComponent(issuer)+'&algorithm=SHA1&digits=6&period=30';
+  await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.enrollment_started','user',$2,$3,'pending')",[request.user.tenantId,user.id,request.id]);
+  return {secret,otpauthUrl,issuer,account:user.email,algorithm:'SHA1',digits:6,periodSeconds:30};
+});
+
+app.post('/api/v1/auth/mfa/enroll/confirm',{preHandler:[auth],config:{rateLimit:{max:8,timeWindow:'1 minute'}}},async(request,reply)=>{
+  const input=z.object({code:z.string().regex(/^\\d{6}$/)}).safeParse(request.body);
+  if(!input.success) return reply.code(400).send({error:'INVALID_INPUT',message:'Kode MFA harus terdiri dari enam digit.'});
+  const key=process.env.MFA_ENCRYPTION_KEY;
+  if(!key) return reply.code(503).send({error:'MFA_CONFIGURATION_ERROR',message:'Kunci enkripsi MFA belum dikonfigurasi.'});
+  const result=await pool.query('SELECT id,email,mfa_enabled,mfa_pending_secret_encrypted FROM asuransi.users WHERE id=$1 AND tenant_id=$2 AND status=\'active\'',[request.user.userId,request.user.tenantId]);
+  const user=result.rows[0];
+  if(!user) return reply.code(401).send({error:'UNAUTHORIZED',message:'Akun tidak aktif.'});
+  if(user.mfa_enabled) return reply.code(409).send({error:'MFA_ALREADY_ENABLED',message:'MFA sudah aktif pada akun ini.'});
+  if(!user.mfa_pending_secret_encrypted) return reply.code(409).send({error:'MFA_ENROLLMENT_NOT_STARTED',message:'Mulai pendaftaran MFA terlebih dahulu.'});
+  let secret;
+  try { secret=decryptMfaSecret(user.mfa_pending_secret_encrypted,key); } catch (error) {
+    request.log.error({err:error,userId:user.id},'pending MFA secret decryption failed');
+    return reply.code(503).send({error:'MFA_CONFIGURATION_ERROR',message:'Data pendaftaran MFA tidak dapat dibaca.'});
+  }
+  const counter=matchingTotpCounter(secret,input.data.code);
+  if(counter===null) return reply.code(401).send({error:'MFA_CODE_INVALID',message:'Kode MFA salah atau kedaluwarsa.'});
+  const encrypted=encryptMfaSecret(secret,key);
+  const updated=await pool.query('UPDATE asuransi.users SET mfa_enabled=true,mfa_secret_encrypted=$3,mfa_pending_secret_encrypted=NULL,mfa_last_counter=$4,mfa_enrolled_at=now() WHERE id=$1 AND tenant_id=$2 AND mfa_enabled=false AND mfa_pending_secret_encrypted=$5',[user.id,request.user.tenantId,encrypted,counter,user.mfa_pending_secret_encrypted]);
+  if(updated.rowCount!==1) return reply.code(409).send({error:'MFA_ENROLLMENT_CONFLICT',message:'Status pendaftaran berubah. Mulai ulang pendaftaran MFA.'});
+  await pool.query("INSERT INTO asuransi.audit_logs(tenant_id,actor_user_id,action,resource_type,resource_id,request_id,outcome) VALUES($1,$2,'auth.mfa.enrollment_completed','user',$2,$3,'success')",[request.user.tenantId,user.id,request.id]);
+  return {mfaEnabled:true, message:'MFA berhasil diaktifkan. Login berikutnya akan meminta kode autentikator.'};
 });
 app.get('/api/v1/me',{preHandler:[auth]},async request=>({user:{userId:request.user.userId,tenantId:request.user.tenantId,email:request.user.email,permissions:request.user.permissions}}));
 await registerClientOperations(app, { pool, auth, permit });
