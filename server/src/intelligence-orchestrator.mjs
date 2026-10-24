@@ -1,3 +1,4 @@
+import { normalizeProviderPayload } from './intelligence-provider-adapters.mjs';
 import { listIntelligenceAgents } from './intelligence-agents.mjs';
 
 const MAX_SOURCES = 30;
@@ -49,7 +50,14 @@ function normalizeItem(item, source, retrievedAt) {
     agentId: source.agentId,
     retrievedAt,
     verificationStatus: 'unverified',
-    confidence: 'not_assessed'
+    confidence: 'not_assessed',
+    eventType: typeof item?.eventType === 'string' ? item.eventType : null,
+    location: typeof item?.location === 'string' ? item.location : null,
+    latitude: Number.isFinite(item?.latitude) ? item.latitude : null,
+    longitude: Number.isFinite(item?.longitude) ? item.longitude : null,
+    magnitude: Number.isFinite(item?.magnitude) ? item.magnitude : null,
+    eventDateLabel: typeof item?.eventDateLabel === 'string' ? item.eventDateLabel : null,
+    eventTimeLabel: typeof item?.eventTimeLabel === 'string' ? item.eventTimeLabel : null
   };
 }
 
@@ -83,7 +91,8 @@ export async function runIntelligenceResearch({ env = process.env, fetchImpl = f
       const contentType = response.headers?.get?.('content-type') || '';
       if (!contentType.toLowerCase().includes('json')) throw new Error('Source did not return JSON; an explicit provider adapter is required.');
       const payload = await response.json();
-      const items = getItems(payload).slice(0, MAX_ITEMS_PER_SOURCE);
+      const adapter = source.adapter || 'generic-json';
+      const items = normalizeProviderPayload(adapter, payload).slice(0, MAX_ITEMS_PER_SOURCE);
       const normalized = items.map(item => normalizeItem(item, source, retrievedAt)).filter(Boolean);
       findings.push(...normalized);
       return { sourceId:source.id, title:source.title, publisher:source.publisher, agentId:source.agentId, status:'success', itemCount:normalized.length, retrievedAt };

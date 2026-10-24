@@ -20,6 +20,41 @@ The authenticated read-only endpoint `GET /api/v1/intelligence/sources` exposes 
 
 Catalog entries are deliberately marked `planned` and `connected: false`. The catalog is not an API connection and does not imply a source is approved, accessible, licensed for reuse, or tested. Several entries are discovery portals rather than API endpoints. Internal and partner data entries are placeholders and must never be fetched as public URLs. Before a connector is enabled, confirm its actual endpoint, authentication, terms, permitted reuse, update frequency, data minimization, and test results. A provider-specific adapter is required when the source does not expose the supported public JSON format.
 
+## Provider-specific public hazard adapters
+
+The research pipeline includes explicit normalization adapters for two public earthquake-feed formats:
+- `usgs-earthquake-geojson`: USGS GeoJSON features, including event time, magnitude, place, coordinates, depth summary, and source URL.
+- `bmkg-earthquake-json`: BMKG `Infogempa.gempa` JSON records, including location, magnitude, depth/potential summary, and coordinates with hemisphere sign handling.
+
+Adapters only normalize responses after the source is explicitly configured. They do not enable sources automatically, verify events independently, or calculate insured loss. Findings remain `unverified`. Before enabling a provider in an environment, check its current endpoint, response schema, terms, update behavior, availability, and the appropriate `INTELLIGENCE_ALLOWED_HOSTS` allowlist. Provider format changes should fail visibly and be covered by fixtures/tests.
+
+Example configuration (review and enable only in a non-production validation environment first):
+
+```json
+[
+  {
+    "id": "usgs-earthquakes-daily",
+    "title": "USGS earthquake feed",
+    "publisher": "USGS",
+    "agentId": "geospatial-risk",
+    "adapter": "usgs-earthquake-geojson",
+    "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
+    "enabled": true
+  },
+  {
+    "id": "bmkg-earthquakes-latest",
+    "title": "BMKG recent earthquake feed",
+    "publisher": "BMKG",
+    "agentId": "geospatial-risk",
+    "adapter": "bmkg-earthquake-json",
+    "url": "https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json",
+    "enabled": true
+  }
+]
+```
+
+For this example, the exact host allowlist must include `earthquake.usgs.gov,data.bmkg.go.id`. This example is a configuration template, not evidence that either endpoint has been live-tested from the deployed service.
+
 ## Source configuration
 
 Set the Neon Function environment variables only after reviewing the source's terms, privacy implications, rate limits and data licence:
