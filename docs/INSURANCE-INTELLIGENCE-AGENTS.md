@@ -45,6 +45,7 @@ Example configuration (review and enable only in a non-production validation env
     "id": "bmkg-earthquakes-latest",
     "title": "BMKG recent earthquake feed",
     "publisher": "BMKG",
+    "attribution": "Sumber data: BMKG",
     "agentId": "geospatial-risk",
     "adapter": "bmkg-earthquake-json",
     "url": "https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json",
@@ -60,7 +61,7 @@ For this example, the exact host allowlist must include `earthquake.usgs.gov,dat
 Set the Neon Function environment variables only after reviewing the source's terms, privacy implications, rate limits and data licence:
 
 - `INTELLIGENCE_ALLOWED_HOSTS`: comma-separated exact HTTPS hostnames approved for outbound retrieval.
-- `INTELLIGENCE_SOURCES_JSON`: JSON array of objects with `id`, `title`, `publisher`, `agentId`, `url`, and `enabled: true`.
+- `INTELLIGENCE_SOURCES_JSON`: JSON array of objects with `id`, `title`, `publisher`, `agentId`, `url`, and `enabled: true`. Optional `attribution` is preserved in source results and each finding; if omitted, the publisher name is used. Supply any attribution required by the provider's terms.
 
 Only HTTPS, exact allowlisted hosts and JSON responses are accepted. Redirects are refused, requests time out, and source/item counts are capped. RSS/XML, websites requiring scraping, authenticated sources, geocoding and provider-specific APIs need dedicated adapters and legal review; they are not silently scraped. Never include API credentials inside source URLs.
 
