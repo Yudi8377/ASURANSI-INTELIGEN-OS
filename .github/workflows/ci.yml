@@ -31,6 +31,8 @@ jobs:
           "
       - run: npm run build
       - run: node --check server/src/index.mjs
+      - run: node --check server/src/mfa-required-enrollment.mjs
+      - run: node --check server/src/mfa-policy.mjs
       - run: node --check server/src/neon-function.mjs
       - run: node --check server/src/neon-fetch-adapter.mjs
       - run: node --check server/src/operations.mjs
