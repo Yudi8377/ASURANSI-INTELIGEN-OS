@@ -1,0 +1,44 @@
+name: Neon validation API smoke test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: neon-validation-health-smoke
+  cancel-in-progress: true
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Poll validation API health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://br-curly-butterfly-aob6l79x-asuransiapi.compute.c-2.ap-southeast-1.aws.neon.tech/api/health"
+          for attempt in $(seq 1 20); do
+            body="$(mktemp)"
+            code="$(curl --silent --show-error --output "$body" --write-out '%{http_code}' --max-time 15 "$url" || true)"
+            if [ "$code" = "200" ]; then
+              if node - "$body" <<'NODE'
+          const fs = require('node:fs');
+          const body = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (body.status !== 'ok' || body.service !== 'asuransi-inteligen-api' || body.database !== 'connected') {
+            console.error('Health response did not confirm API and database readiness:', body);
+            process.exit(1);
+          }
+          console.log('Validation API health is OK and database is connected.');
+          NODE
+              then
+                rm -f "$body"
+                exit 0
+              fi
+            fi
+            echo "Attempt $attempt/20: validation API not ready (HTTP $code); retrying."
+            rm -f "$body"
+            sleep 6
+          done
+          echo "Validation API did not become healthy within the polling window."
+          exit 1
