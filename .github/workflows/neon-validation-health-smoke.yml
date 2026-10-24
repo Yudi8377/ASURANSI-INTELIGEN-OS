@@ -42,3 +42,35 @@ jobs:
           done
           echo "Validation API did not become healthy within the polling window."
           exit 1
+
+  api-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Assert protected research routes reject anonymous access
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://br-curly-butterfly-aob6l79x-asuransiapi.compute.c-2.ap-southeast-1.aws.neon.tech"
+          for route in "/api/v1/intelligence/research/runs" "/api/v1/intelligence/findings"; do
+            body="$(mktemp)"
+            code="$(curl --silent --show-error --output "$body" --write-out '%{http_code}' --max-time 15 "$base$route" || true)"
+            if [ "$code" != "401" ]; then
+              echo "::error::Expected HTTP 401 for anonymous GET $route; got HTTP $code"
+              cat "$body"
+              rm -f "$body"
+              exit 1
+            fi
+            rm -f "$body"
+            echo "Anonymous GET $route correctly returned HTTP 401."
+          done
+          body="$(mktemp)"
+          code="$(curl --silent --show-error --output "$body" --write-out '%{http_code}' --max-time 15 -X POST -H 'content-type: application/json' --data '{}' "$base/api/v1/intelligence/research/run" || true)"
+          if [ "$code" != "401" ]; then
+            echo "::error::Expected HTTP 401 for anonymous POST /api/v1/intelligence/research/run; got HTTP $code"
+            cat "$body"
+            rm -f "$body"
+            exit 1
+          fi
+          rm -f "$body"
+          echo "Anonymous POST /api/v1/intelligence/research/run correctly returned HTTP 401."
