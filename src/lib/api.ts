@@ -32,3 +32,15 @@ export function createScenario(input:{scenarioType:ScenarioType;title:string;dec
 }
 
 export function runScenario(id:string) { return call<{data:{scenarioId:string;result:Record<string,unknown>};notice:string}>('/v1/scenarios/'+encodeURIComponent(id)+'/run',{method:'POST',body:JSON.stringify({})}); }
+
+export type IntelligenceRun = {id:string;mode:string;generated_at:string;summary:{configuredSources?:number;successfulSources?:number;failedSources?:number;findings?:number;verifiedFindings?:number};status:'completed'|'partial'|'failed';created_at:string};
+export type IntelligenceFinding = {id:string;research_run_id:string;title:string;url:string|null;summary:string;published_at:string|null;source_id:string;source_title:string;source_url:string;publisher:string;attribution:string;agent_id:string;retrieved_at:string;verification_status:'unverified'|'pending_review'|'verified'|'rejected';location:string|null;latitude:number|null;longitude:number|null};
+export function runIntelligenceResearch() {
+  return call<{data:{runId:string;persistedFindings:number;persistenceStatus:string;summary:{configuredSources:number;successfulSources:number;failedSources:number;findings:number;verifiedFindings:number}};notice:string}>('/v1/intelligence/research/run',{method:'POST',body:JSON.stringify({})});
+}
+export function getIntelligenceRuns() {
+  return call<{data:IntelligenceRun[];limit:number;offset:number}>('/v1/intelligence/research/runs?limit=25&offset=0');
+}
+export function getIntelligenceFindings() {
+  return call<{data:IntelligenceFinding[];limit:number;offset:number}>('/v1/intelligence/findings?limit=50&offset=0');
+}
