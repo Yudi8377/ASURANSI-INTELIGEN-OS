@@ -9,6 +9,7 @@ import pg from 'pg';
 import { z } from 'zod';
 import { registerOperations } from './operations.mjs';
 import { registerScenarioOperations } from './scenarios.mjs';
+import { createAuthGuard } from './auth-guard.mjs';
 
 const { Pool } = pg;
 const required = ['DATABASE_URL','AUTH_ACCESS_TOKEN_SECRET'];
@@ -35,24 +36,7 @@ async function ownerBelongsToTenant(ownerUserId, tenantId) {
   const result = await pool.query('SELECT 1 FROM asuransi.users WHERE id=$1 AND tenant_id=$2 AND status <> $3 LIMIT 1', [ownerUserId, tenantId, 'disabled']);
   return result.rowCount === 1;
 }
-async function auth(request, reply) {
-  try {
-    await request.jwtVerify();
-    if (!request.user?.userId || !request.user?.tenantId || !Array.isArray(request.user?.permissions)) throw new Error('Invalid token claims');
-  } catch { return reply.code(401).send({error:'UNAUTHORIZED',message:'Sesi tidak valid atau telah kedaluwarsa.'}); }
-
-  // JWTs are short-lived, but authorization must also honor account and tenant revocation immediately.
-  const principal = await pool.query(
-    'SELECT u.status AS user_status, t.status AS tenant_status FROM asuransi.users u JOIN asuransi.tenants t ON t.id=u.tenant_id WHERE u.id=$1 AND u.tenant_id=$2 LIMIT 1',
-    [request.user.userId, request.user.tenantId]
-  );
-  if (!principal.rowCount || principal.rows[0].user_status !== 'active') {
-    return reply.code(401).send({error:'UNAUTHORIZED',message:'Akun tidak aktif atau sesi telah dicabut.'});
-  }
-  if (principal.rows[0].tenant_status !== 'active') {
-    return reply.code(403).send({error:'TENANT_SUSPENDED',message:'Organisasi tidak aktif. Hubungi administrator.'});
-  }
-}
+const auth = createAuthGuard({ pool });
 function permit(permission) { return async (request, reply) => { if (!request.user?.permissions?.includes(permission) && !request.user?.permissions?.includes('*')) return reply.code(403).send({error:'FORBIDDEN',message:'Anda tidak memiliki izin untuk tindakan ini.'}); }; }
 app.get('/api/health', async (_request, reply) => {
   try {
