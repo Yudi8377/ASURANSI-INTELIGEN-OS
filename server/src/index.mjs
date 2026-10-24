@@ -15,6 +15,7 @@ import { registerClientOperations } from './clients.mjs';
 import { findLoginPrincipal } from './login-principal.mjs';
 import { encryptMfaSecret, decryptMfaSecret } from './mfa-crypto.mjs';
 import { generateTotpSecret, matchingTotpCounter } from './totp.mjs';
+import { registerMfaRecoveryRoutes } from './mfa-recovery.mjs';
 
 const { Pool } = pg;
 const required = ['DATABASE_URL','AUTH_ACCESS_TOKEN_SECRET'];
@@ -144,6 +145,7 @@ await registerClientOperations(app, { pool, auth, permit });
 await registerOperations(app, { pool, auth, permit });
 await registerIntelligencePersistence(app, { pool, auth, permit });
 await registerScenarioOperations(app, { pool, auth, permit });
+await registerMfaRecoveryRoutes(app, { pool, auth });
 app.setNotFoundHandler((request,reply)=>reply.code(404).send({error:'NOT_FOUND',requestId:request.id}));
 export { app };
 
