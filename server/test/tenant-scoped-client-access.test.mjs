@@ -93,6 +93,6 @@ test('partial client update changes only explicitly supplied fields', async () =
   await h.register(); const reply = makeReply();
   await h.routes.get('PUT /api/v1/clients/:id')(request({ body: { full_name: 'Nama Baru' } }), reply);
   const update = h.calls.find(c => c.sql.startsWith('UPDATE asuransi.clients'));
-  assert.match(update.sql, /SET full_name=\\$3,updated_at=now\(\)/);
+  assert.match(update.sql, /SET full_name=\$3,updated_at=now\(\)/);
   assert.deepEqual(update.values, [TENANT_A, CLIENT_ID, 'Nama Baru']);
 });
