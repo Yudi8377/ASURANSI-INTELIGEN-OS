@@ -1,0 +1,108 @@
+name: Deploy Neon Functions (production, manual)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_deploy:
+        description: Type DEPLOY-PRODUCTION to publish the API to the production Neon branch
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: neon-production-deploy
+  cancel-in-progress: false
+jobs:
+  deploy-production:
+    if: ${{ inputs.confirm_production_deploy == 'DEPLOY-PRODUCTION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    env:
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      DATABASE_URL_PRODUCTION: ${{ secrets.DATABASE_URL_PRODUCTION }}
+      AUTH_ACCESS_TOKEN_SECRET_PRODUCTION: ${{ secrets.AUTH_ACCESS_TOKEN_SECRET_PRODUCTION }}
+      APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+      NEON_PROJECT_ID: rapid-meadow-32896086
+      NEON_BRANCH_ID: br-crimson-haze-aoajbbfh
+      NEON_FUNCTION_SLUG: asuransiapi
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - name: Validate production secrets and origin
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$NEON_API_KEY" || { echo "::error::Add NEON_API_KEY as a repository Actions secret."; exit 1; }
+          case "$DATABASE_URL_PRODUCTION" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::Add DATABASE_URL_PRODUCTION as a secret pointing only to production branch br-crimson-haze-aoajbbfh."; exit 1;;
+          esac
+          test "${#AUTH_ACCESS_TOKEN_SECRET_PRODUCTION}" -ge 32 || { echo "::error::Add AUTH_ACCESS_TOKEN_SECRET_PRODUCTION (minimum 32 characters)."; exit 1; }
+          test -n "$APP_ORIGIN" || { echo "::error::Set APP_ORIGIN to the HTTPS dashboard origin."; exit 1; }
+          case "$APP_ORIGIN" in https://*) ;; *) echo "::error::APP_ORIGIN must be an HTTPS origin."; exit 1;; esac
+      - name: Build and smoke-test package
+        run: bash server/scripts/package-neon-function.sh
+      - name: Deploy to production branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          environment_json="$(jq -cn \
+            --arg database_url "$DATABASE_URL_PRODUCTION" \
+            --arg secret "$AUTH_ACCESS_TOKEN_SECRET_PRODUCTION" \
+            --arg origin "$APP_ORIGIN" \
+            '{DATABASE_URL:$database_url,AUTH_ACCESS_TOKEN_SECRET:$secret,APP_ORIGIN:$origin,NEON_FUNCTION_RUNTIME:"1",NODE_ENV:"production"}')"
+          response_file="$(mktemp)"
+          status="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
+            --request POST \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG/deployments" \
+            --header "Authorization: Bearer $NEON_API_KEY" \
+            --header "Accept: application/json" \
+            --form "zip=@build/asuransiapi.zip;type=application/zip" \
+            --form "runtime=nodejs24" \
+            --form "environment=$environment_json")"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Neon production deployment request failed with HTTP $status"
+            jq 'del(.. | .environment? // empty)' "$response_file" 2>/dev/null || cat "$response_file"
+            exit 1
+          fi
+          echo "Neon accepted the production deployment request (HTTP $status)."
+          jq '{id,slug,status,created_at,updated_at}' "$response_file" || true
+      - name: Wait for deployment and verify production health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 24); do
+            response="$(curl --silent --show-error --fail \
+              --header "Authorization: Bearer $NEON_API_KEY" \
+              --header "Accept: application/json" \
+              "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$NEON_BRANCH_ID/functions/$NEON_FUNCTION_SLUG")"
+            state="$(printf '%s' "$response" | jq -r '.. | objects | .status? // empty' | tail -n 1)"
+            url="$(printf '%s' "$response" | jq -r '.. | objects | .invocation_url? // empty' | head -n 1)"
+            echo "Production deployment status check $attempt: ${state:-pending}"
+            if [ "$state" = "failed" ]; then
+              echo "::error::Neon reports a failed production function deployment."
+              printf '%s' "$response" | jq 'del(.. | .environment? // empty)'
+              exit 1
+            fi
+            if [ "$state" = "completed" ] && [ -n "$url" ]; then
+              health_url="${url%/}/api/health"
+              health_file="$(mktemp)"
+              for health_attempt in $(seq 1 24); do
+                health_status="$(curl --silent --show-error --output "$health_file" --write-out '%{http_code}' "$health_url" || true)"
+                if [ "$health_status" = "200" ] && jq -e '.service == "asuransi-inteligen-api" and .database == "connected" and .status == "ok"' "$health_file" >/dev/null 2>&1; then
+                  echo "Production health endpoint returned HTTP 200:"
+                  jq . "$health_file"
+                  echo "Production API and database health verification passed."
+                  exit 0
+                fi
+                echo "Health propagation check $health_attempt: HTTP ${health_status:-unknown}; waiting."
+                if [ "$health_attempt" -lt 24 ]; then sleep 10; fi
+              done
+              echo "::error::Production health endpoint failed strict readiness checks."
+              cat "$health_file"
+              exit 1
+            fi
+            sleep 15
+          done
+          echo "::error::Timed out waiting for production deployment completion."
+          exit 1
