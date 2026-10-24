@@ -46,7 +46,7 @@ function request(overrides = {}) {
 test('client list scopes results to the authenticated tenant', async () => {
   const h = makeHarness(); await h.register();
   await h.routes.get('GET /api/v1/clients')(request());
-  assert.match(h.calls[0].sql, /WHERE tenant_id=\\$1 AND deleted_at IS NULL/);
+  assert.match(h.calls[0].sql, /WHERE tenant_id=\$1 AND deleted_at IS NULL/);
   assert.equal(h.calls[0].values[0], TENANT_A);
 });
 
@@ -72,7 +72,7 @@ test('client update returns 404 and does not cross tenant boundary', async () =>
   await h.register(); const reply = makeReply();
   await h.routes.get('PUT /api/v1/clients/:id')(request(), reply);
   const update = h.calls.find(c => c.sql.startsWith('UPDATE asuransi.clients'));
-  assert.match(update.sql, /WHERE tenant_id=\\$1 AND id=\\$2 AND deleted_at IS NULL/);
+  assert.match(update.sql, /WHERE tenant_id=\$1 AND id=\$2 AND deleted_at IS NULL/);
   assert.deepEqual(update.values.slice(0, 2), [TENANT_A, CLIENT_ID]);
   assert.equal(reply.status, 404);
 });
@@ -82,7 +82,7 @@ test('client delete returns 404 and cannot soft-delete another tenant client', a
   await h.register(); const reply = makeReply();
   await h.routes.get('DELETE /api/v1/clients/:id')(request(), reply);
   const update = h.calls.find(c => c.sql.startsWith('UPDATE asuransi.clients'));
-  assert.match(update.sql, /WHERE tenant_id=\\$1 AND id=\\$2 AND deleted_at IS NULL/);
+  assert.match(update.sql, /WHERE tenant_id=\$1 AND id=\$2 AND deleted_at IS NULL/);
   assert.deepEqual(update.values, [TENANT_A, CLIENT_ID]);
   assert.equal(reply.status, 404);
 });
