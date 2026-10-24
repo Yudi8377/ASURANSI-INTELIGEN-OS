@@ -46,6 +46,31 @@ jobs:
           [[ "$MFA_ENCRYPTION_KEY" =~ ^[A-Fa-f0-9]{64}$ ]] || { echo "::error::Add MFA_ENCRYPTION_KEY as a 32-byte key encoded as 64 hex characters."; exit 1; }
           test -n "$APP_ORIGIN" || { echo "::error::Add APP_ORIGIN as a repository Actions variable, e.g. the deployed dashboard origin."; exit 1; }
           case "$APP_ORIGIN" in https://*) ;; *) echo "::error::APP_ORIGIN must be an HTTPS origin."; exit 1;; esac
+      - name: Verify MFA schema prerequisites without applying migrations
+        env:
+          MFA_SCHEMA_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix server
+          node --input-type=module <<'NODE'
+          import pg from './server/node_modules/pg/lib/index.js';
+          const pool = new pg.Pool({ connectionString: process.env.MFA_SCHEMA_DATABASE_URL, ssl: { rejectUnauthorized: true }, connectionTimeoutMillis: 5000, max: 1 });
+          try {
+            const required = ['mfa_secret_encrypted','mfa_pending_secret_encrypted','mfa_last_counter','mfa_enrolled_at'];
+            const columns = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_schema='asuransi' AND table_name='users' AND column_name = ANY($1::text[])", [required]);
+            const recovery = await pool.query("SELECT to_regclass('asuransi.user_mfa_recovery_codes') AS table_name");
+            if (columns.rowCount !== required.length || !recovery.rows[0]?.table_name) {
+              console.error('Required MFA schema is missing. Apply reviewed migrations to this branch first; this workflow never applies migrations.');
+              process.exitCode = 1;
+            } else {
+              console.log('MFA schema prerequisites verified; no database changes made.');
+            }
+          } catch {
+            console.error('MFA schema preflight failed. Check database connectivity and reviewed migration state; no migration was applied.');
+            process.exitCode = 1;
+          } finally { await pool.end(); }
+          NODE
       - name: Build and smoke-test package
         run: bash server/scripts/package-neon-function.sh
       - name: Deploy only to validation branch
